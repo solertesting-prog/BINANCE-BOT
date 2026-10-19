@@ -16,10 +16,9 @@ if not exist venv (echo Primero ejecuta instalar.bat & pause & exit /b 1)
 call venv\Scripts\activate.bat
 python -c "import licensing,sys; sys.exit(0 if licensing.REQUIRE_LICENSE else 1)"
 if errorlevel 1 (
-  echo [ERROR] En licensing.py tienes REQUIRE_LICENSE = False. Ponlo a True antes de compilar
-  echo         o tus clientes podrian usar el bot sin licencia.
-  pause
-  exit /b 1
+  echo [INFO] Version GRATUITA: REQUIRE_LICENSE = False en licensing.py, no se pedira licencia.
+  echo        Para cobrar, ponlo a True y vuelve a compilar.
+  goto compilar
 )
 python -c "import licensing,sys; sys.exit(0 if licensing.STORE_ID else 1)"
 if errorlevel 1 (
@@ -28,6 +27,7 @@ if errorlevel 1 (
   choice /c SN /m "Compilar de todas formas"
   if errorlevel 2 exit /b 1
 )
+:compilar
 echo [1/3] Instalando el compilador (Nuitka)...
 python -m pip install -q nuitka ordered-set zstandard
 echo [2/3] Compilando (paciencia)...

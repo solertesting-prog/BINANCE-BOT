@@ -1,5 +1,7 @@
 # 💼 Vender Valorize Bot con licencias
 
+> 🆓 **Ahora mismo Valorize Bot es gratuito:** en `licensing.py` está `REQUIRE_LICENSE = False`, así que no pide licencia y el indicador 🔑 no aparece en el panel. Cuando quieras empezar a cobrar, sigue esta guía y cambia esa línea a `REQUIRE_LICENSE = True`.
+
 Guía para ti como vendedor. Tus clientes **no** necesitan leer esto: ellos usan `MANUAL_CLIENTE.md`.
 
 ## Cómo funciona
@@ -44,7 +46,7 @@ Abre `licensing.py` con el Bloc de notas y rellena las líneas del principio:
 STORE_ID = 123456                 # el ID de tu tienda
 PRODUCT_IDS = [654321]            # el ID del producto (varios si tienes más: [654321, 654322])
 PURCHASE_URL = "https://..."      # tu enlace de compra (aparece como "Comprar licencia" en el panel)
-REQUIRE_LICENSE = True
+REQUIRE_LICENSE = True            # activa el cobro de licencias
 FREE_PAPER_MODE = True            # False = sin prueba gratuita en simulado
 ```
 
@@ -80,7 +82,7 @@ Cada vez que publiques una versión nueva, sube el número de versión en `compi
 | Un cliente deja de pagar | No hagas nada: al caducar la suscripción la clave pasa a "caducada" y el bot deja de operar en real (en un máximo de 6 h). |
 | Quieres cortar una licencia ya | Desactiva la clave en Lemon Squeezy. |
 | Quieres regalar una licencia | Crea un descuento del 100 % o genera la clave a mano desde Lemon Squeezy. |
-| Uso propio | En tu copia de desarrollo puedes poner `REQUIRE_LICENSE = False` (no lo compiles así). |
+| Volver a hacerlo gratis | Pon `REQUIRE_LICENSE = False` y vuelve a compilar. |
 
 ## Qué ve el cliente
 

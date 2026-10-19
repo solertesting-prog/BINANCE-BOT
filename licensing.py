@@ -26,7 +26,7 @@ import requests
 STORE_ID = None          # id de tu tienda en Lemon Squeezy, p. ej. 123456 (None = no comprobar)
 PRODUCT_IDS = []         # ids de los productos que dan licencia, p. ej. [654321] ([] = cualquiera de la tienda)
 PURCHASE_URL = ""        # enlace de compra que se muestra en el panel
-REQUIRE_LICENSE = True   # False = sin licencias (uso personal / desarrollo)
+REQUIRE_LICENSE = False  # De momento GRATIS: no se pide licencia. Pon True para empezar a cobrar.
 FREE_PAPER_MODE = True   # True = el modo simulado es gratis (prueba); la licencia hace falta para testnet/real
 GRACE_HOURS = 72         # horas que funciona sin poder conectar con el servidor de licencias
 REVALIDATE_HOURS = 6     # cada cuánto se vuelve a comprobar

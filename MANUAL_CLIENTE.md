@@ -12,7 +12,9 @@ Valorize Bot compra y vende criptomonedas automáticamente en tu exchange (Binan
 3. Te pregunta si quieres que se abra solo al encender el PC (recomendado: **S**).
 4. Se crea el icono **Valorize Bot** en el escritorio y se abre el panel en tu navegador.
 
-## 2. Activar tu licencia
+## 2. Activar tu licencia (solo si tu versión la pide)
+
+Si en la barra superior del panel no aparece **🔑**, tu versión es gratuita y puedes saltarte este paso.
 
 1. Arriba en el panel, pulsa **🔑**.
 2. Pega la **clave de licencia** que recibiste por email al comprar y pulsa **Activar**.
