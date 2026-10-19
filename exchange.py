@@ -53,3 +53,9 @@ def fetch_closed_candles(ex, symbol: str, timeframe: str, n: int) -> pd.DataFram
     if df["ts"].iloc[-1] + tf_ms > ex.milliseconds():
         df = df.iloc[:-1]
     return df
+
+
+def timeframe_seconds(timeframe: str) -> int:
+    """'15m' -> 900, '4h' -> 14400, '1d' -> 86400 (sin necesitar conexión)."""
+    units = {"m": 60, "h": 3600, "d": 86400, "w": 604800}
+    return int(timeframe[:-1]) * units[timeframe[-1]]

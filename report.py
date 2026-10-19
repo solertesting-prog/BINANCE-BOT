@@ -52,7 +52,7 @@ def write_html(r: dict, path: str):
     ])
     reasons = (" · ".join(f"{k}: {v}" for k, v in tr.motivo.value_counts().items())) if len(tr) else ""
 
-    page = TEMPLATE.replace("__TITLE__", html.escape(f"Backtest {cfg.symbol} {cfg.timeframe}")) \
+    page = TEMPLATE.replace("__TITLE__", html.escape(f"Backtest {r['symbol']} {cfg.timeframe}")) \
         .replace("__SUB__", html.escape(f"{describe(cfg)} · {r['periodo']} · capital inicial {r['initial']:.0f} USDT")) \
         .replace("__TILES__", tiles).replace("__ROWS__", rows).replace("__REASONS__", html.escape(reasons)) \
         .replace("__DATA__", json.dumps(data))

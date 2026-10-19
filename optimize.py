@@ -29,25 +29,30 @@ from backtest import add_common_args, load_data, run_backtest
 from config import CONFIG
 from strategy import describe
 
+# "stops" agrupa variantes de salida para no probar combinaciones sin sentido
+STOPS = [
+    {"stop_mode": "atr", "atr_stop_mult": 2.0, "atr_trail_mult": 3.0, "take_profit": 0},
+    {"stop_mode": "atr", "atr_stop_mult": 2.5, "atr_trail_mult": 3.0, "take_profit": 0},
+    {"stop_mode": "atr", "atr_stop_mult": 3.0, "atr_trail_mult": 4.0, "take_profit": 0},
+    {"stop_mode": "atr", "atr_stop_mult": 2.5, "atr_trail_mult": 0, "take_profit": 0},
+    {"stop_mode": "pct", "stop_loss": 0.03, "trailing_stop": 0, "take_profit": 0.08},
+    {"stop_mode": "pct", "stop_loss": 0.05, "trailing_stop": 0.05, "take_profit": 0},
+]
 GRID = {
     "fast": [10, 20, 30],
-    "slow": [50, 100, 150],
-    "ma_type": ["sma", "ema"],
-    "trend_filter": [0, 200],
-    "adx_min": [0, 20],
-    "stop_loss": [0.03, 0.05],
-    "trailing_stop": [0, 0.05],
-    "take_profit": [0, 0.10],
-}
-QUICK_GRID = {
-    "fast": [10, 20],
     "slow": [50, 100],
     "ma_type": ["sma", "ema"],
     "trend_filter": [0, 200],
-    "adx_min": [0],
-    "stop_loss": [0.03],
-    "trailing_stop": [0, 0.05],
-    "take_profit": [0.08],
+    "adx_min": [0, 20],
+    "stops": STOPS,
+}
+QUICK_GRID = {
+    "fast": [10, 20],
+    "slow": [50],
+    "ma_type": ["ema"],
+    "trend_filter": [0, 200],
+    "adx_min": [0, 20],
+    "stops": STOPS[:2] + STOPS[4:5],
 }
 MIN_TRADES = 5          # con menos operaciones, el resultado es ruido estadístico
 
@@ -81,6 +86,7 @@ def combos(grid):
     keys = list(grid)
     for values in itertools.product(*grid.values()):
         p = dict(zip(keys, values))
+        p.update(p.pop("stops", {}))
         if p["fast"] < p["slow"]:
             yield p
 
@@ -97,6 +103,7 @@ def main():
     p.add_argument("--out", default="optim_resultados.csv", help="CSV con todas las combinaciones")
     a = p.parse_args()
 
+    a.symbol = a.symbol.split(",")[0].strip().upper()     # optimiza una moneda cada vez
     df = load_data(a.symbol, a.timeframe, a.days, a.csv)
     _init(df)                     # también en este proceso, no solo en los trabajadores
     grid = QUICK_GRID if a.quick else GRID
@@ -140,23 +147,23 @@ def main():
         print(f"  Config actual (config.py): {oos_current - 1:+.1%}")
         print(f"  Comprar y mantener:        {oos_bh - 1:+.1%}")
         if len(chosen) > 1:
-            stable = {k: len({c[k] for c in chosen}) == 1 for k in grid}
+            stable = {k: len({c[k] for c in chosen}) == 1 for k in chosen[0]}
             fixed = [k for k, v in stable.items() if v]
             print(f"  Parámetros que se repiten en todos los tramos: {', '.join(fixed) or 'ninguno'}")
-            if len(fixed) < len(grid) / 2:
+            if len(fixed) < len(chosen[0]) / 2:
                 print("  ⚠️  Los parámetros elegidos cambian mucho entre tramos: señal de sobreajuste.")
 
         # Ranking final con todo el histórico (para orientarte, no para fiarte ciegamente)
         full = evaluate_all(pool, params_list)
 
-    rows = [{**p, **m, "score": score(m)} for p, m in full if m]
+    rows = [{"configuracion": describe(replace(CONFIG, **p)), **p, **m, "score": score(m)}
+            for p, m in full if m]
     res = pd.DataFrame(rows).sort_values("score", ascending=False)
     res.to_csv(a.out, index=False)
     print(f"\nTop 5 en todo el histórico (guardado completo en {a.out}):")
-    show = res.head(5).copy()
-    for c in ("rentabilidad", "buy_and_hold", "max_drawdown", "acierto"):
-        show[c] = show[c].map("{:+.1%}".format)
-    print(show[list(grid) + ["rentabilidad", "max_drawdown", "operaciones", "acierto"]].to_string(index=False))
+    for x in res.head(5).itertuples():
+        print(f"  {x.rentabilidad:+7.1%}  DD {x.max_drawdown:6.1%}  {x.operaciones:3d} ops  "
+              f"acierto {x.acierto:4.0%}  | {x.configuracion}")
     print("\nConsejo: solo cambia config.py si la PRUEBA fuera de muestra es convincente, "
           "no por el top del histórico completo.")
 

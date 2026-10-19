@@ -17,7 +17,7 @@ from pathlib import Path
 import pandas as pd
 
 from config import CONFIG, Config
-from strategy import add_signals, describe, exit_levels
+from strategy import add_signals, describe, exit_levels, initial_stop, position_spend
 
 DATA_DIR = Path("data")
 
@@ -53,7 +53,7 @@ def run_backtest(df: pd.DataFrame, cfg: Config, initial: float = 1000.0,
     if len(df) < 2:
         raise ValueError("No hay suficientes velas en el periodo")
 
-    cash, qty, entry, peak, entry_time = initial, 0.0, 0.0, 0.0, None
+    cash, qty, entry, peak, entry_atr, entry_time = initial, 0.0, 0.0, 0.0, 0.0, None
     trades, equity = [], []
     in_market = 0
 
@@ -61,12 +61,11 @@ def run_backtest(df: pd.DataFrame, cfg: Config, initial: float = 1000.0,
         t = row.Index
         if qty > 0:
             in_market += 1
-            stop, tp = exit_levels(entry, peak, cfg)   # niveles con el máximo de velas ANTERIORES
+            # niveles calculados con el máximo de velas ANTERIORES (sin mirar el futuro)
+            stop, tp, kind = exit_levels(entry, peak, entry_atr, cfg)
             exit_price, reason = None, None
             if stop and row.low <= stop:
-                exit_price = min(stop, row.open)       # si abre por debajo, sale a la apertura
-                fixed = entry * (1 - cfg.stop_loss) if cfg.stop_loss else 0
-                reason = "trailing stop" if stop > fixed else "stop loss"
+                exit_price, reason = min(stop, row.open), kind   # si abre por debajo, sale a la apertura
             elif tp and row.high >= tp:
                 exit_price, reason = max(tp, row.open), "take profit"
             elif row.signal == -1:
@@ -79,22 +78,27 @@ def run_backtest(df: pd.DataFrame, cfg: Config, initial: float = 1000.0,
                     "entrada_precio": round(entry, 2), "salida_precio": round(exit_price, 2),
                     "motivo": reason,
                     "pnl_pct": (exit_price / entry) * (1 - cfg.fee) ** 2 - 1,
+                    "pnl_usdt": qty * exit_price * (1 - cfg.fee) - spent,
                 })
                 qty = 0.0
             else:
                 peak = max(peak, row.high)
         elif row.signal == 1:
-            spend = cash * cfg.position_pct
-            qty = spend * (1 - cfg.fee) / row.close
-            cash -= spend
-            entry = peak = row.close
-            entry_time = t
+            entry_atr = row.atr
+            spend = position_spend(cash, cash, row.close, initial_stop(row.close, entry_atr, cfg), cfg)
+            if spend > 0:
+                qty = spend * (1 - cfg.fee) / row.close
+                cash -= spend
+                spent = spend
+                entry = peak = row.close
+                entry_time = t
         equity.append(cash + qty * row.close)
 
     eq = pd.Series(equity, index=df.index)
     tr = pd.DataFrame(trades)
     return {
         "cfg": cfg,
+        "symbol": cfg.symbols[0],
         "periodo": f"{df.index[0]:%Y-%m-%d} → {df.index[-1]:%Y-%m-%d}",
         "initial": initial,
         "capital_final": eq.iloc[-1],
@@ -129,7 +133,7 @@ def metrics(eq: pd.Series, tr: pd.DataFrame, df: pd.DataFrame, in_market: int, i
 
 def print_report(r: dict):
     cfg = r["cfg"]
-    print(f"\n=== Backtest {cfg.symbol} {cfg.timeframe} | {describe(cfg)} ===")
+    print(f"\n=== Backtest {r['symbol']} {cfg.timeframe} | {describe(cfg)} ===")
     print(f"Periodo:            {r['periodo']}")
     print(f"Capital final:      {r['capital_final']:.2f} USDT{'  (con posición abierta)' if r['abierta'] else ''}")
     print(f"Rentabilidad:       {r['rentabilidad']:+.2%}")
@@ -145,7 +149,8 @@ def print_report(r: dict):
 
 # ---------- línea de comandos ----------
 def add_common_args(p: argparse.ArgumentParser):
-    p.add_argument("--symbol", default=CONFIG.symbol)
+    p.add_argument("--symbol", default=",".join(CONFIG.symbols),
+                   help="moneda(s) separadas por comas, p. ej. BTC/USDT,ETH/USDT")
     p.add_argument("--timeframe", default=CONFIG.timeframe)
     p.add_argument("--days", type=int, default=365)
     p.add_argument("--csv", help="CSV con columnas ts,open,high,low,close,volume")
@@ -159,26 +164,36 @@ def main():
     p.add_argument("--ma", choices=["sma", "ema"], default=CONFIG.ma_type)
     p.add_argument("--trend", type=int, default=CONFIG.trend_filter, help="filtro de tendencia (0 = no)")
     p.add_argument("--adx", type=float, default=CONFIG.adx_min, help="ADX mínimo (0 = no)")
-    p.add_argument("--sl", type=float, default=CONFIG.stop_loss)
-    p.add_argument("--trailing", type=float, default=CONFIG.trailing_stop)
-    p.add_argument("--tp", type=float, default=CONFIG.take_profit)
+    p.add_argument("--stop", choices=["atr", "pct"], default=CONFIG.stop_mode, help="tipo de stop")
+    p.add_argument("--atr-stop", type=float, default=CONFIG.atr_stop_mult, help="stop inicial en ATR")
+    p.add_argument("--atr-trail", type=float, default=CONFIG.atr_trail_mult, help="trailing en ATR (0 = no)")
+    p.add_argument("--sl", type=float, default=CONFIG.stop_loss, help="stop en %% (modo pct)")
+    p.add_argument("--trailing", type=float, default=CONFIG.trailing_stop, help="trailing en %% (0 = no)")
+    p.add_argument("--tp", type=float, default=CONFIG.take_profit, help="take profit (0 = no)")
+    p.add_argument("--risk", type=float, default=CONFIG.risk_per_trade, help="riesgo por operación (0 = no)")
     p.add_argument("--export", help="guarda las operaciones en este CSV")
     p.add_argument("--html", help="genera un informe visual en este archivo HTML")
     a = p.parse_args()
 
-    cfg = replace(CONFIG, symbol=a.symbol, timeframe=a.timeframe, fast=a.fast, slow=a.slow,
-                  ma_type=a.ma, trend_filter=a.trend, adx_min=a.adx,
-                  stop_loss=a.sl, trailing_stop=a.trailing, take_profit=a.tp)
-    df = load_data(cfg.symbol, cfg.timeframe, a.days, a.csv)
-    r = run_backtest(df, cfg)
-    print_report(r)
-    if a.export and r["operaciones"]:
-        r["trades"].to_csv(a.export, index=False)
-        print(f"\nOperaciones guardadas en {a.export}")
-    if a.html:
-        from report import write_html
-        write_html(r, a.html)
-        print(f"\nInforme guardado en {a.html} (ábrelo con el navegador)")
+    symbols = [s.strip().upper() for s in a.symbol.split(",") if s.strip()]
+    for sym in symbols:
+        cfg = replace(CONFIG, symbols=(sym,), timeframe=a.timeframe, fast=a.fast, slow=a.slow,
+                      ma_type=a.ma, trend_filter=a.trend, adx_min=a.adx, stop_mode=a.stop,
+                      atr_stop_mult=a.atr_stop, atr_trail_mult=a.atr_trail, stop_loss=a.sl,
+                      trailing_stop=a.trailing, take_profit=a.tp, risk_per_trade=a.risk)
+        df = load_data(sym, cfg.timeframe, a.days, a.csv)
+        r = run_backtest(df, cfg)
+        print_report(r)
+        suffix = "" if len(symbols) == 1 else "_" + sym.replace("/", "")
+        if a.export and r["operaciones"]:
+            out = a.export.replace(".csv", suffix + ".csv")
+            r["trades"].to_csv(out, index=False)
+            print(f"\nOperaciones guardadas en {out}")
+        if a.html:
+            from report import write_html
+            out = a.html.replace(".html", suffix + ".html")
+            write_html(r, out)
+            print(f"\nInforme guardado en {out} (ábrelo con el navegador)")
 
 
 if __name__ == "__main__":

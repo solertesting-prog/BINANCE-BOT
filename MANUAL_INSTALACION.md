@@ -1,664 +1,413 @@
-# 📘 Manual de instalación del bot, paso a paso
+# 📘 Manual del Trading Bot, paso a paso
 
-Este manual está pensado para alguien que **nunca ha programado ni usado la terminal**. Sigue los pasos en orden, sin saltarte ninguno, y copia los comandos tal cual.
+Este manual está pensado para alguien que **nunca ha programado**. En Windows todo se hace con **doble clic**: no hace falta escribir comandos.
 
-Hay instrucciones para **Windows** 🪟 y para **Mac** 🍎. Haz solo las de tu sistema.
-
-> ⏱️ **Tiempo:** unos 30–45 minutos la primera vez.
+> ⏱️ **Tiempo:** unos 15 minutos la primera vez.
 > 💸 **Dinero:** no necesitas poner dinero para probarlo. Hasta la Parte 9 todo es simulado.
+> 🍎 **¿Usas Mac?** Ve al [Anexo para Mac](#anexo-instalación-en-mac).
 
 ---
 
 ## Índice
 
-1. [Antes de empezar: tres palabras que debes conocer](#1-antes-de-empezar-tres-palabras-que-debes-conocer)
+1. [Qué es y cómo funciona](#1-qué-es-y-cómo-funciona)
 2. [Instalar Python](#2-instalar-python)
 3. [Descargar el bot](#3-descargar-el-bot)
-4. [Abrir la terminal dentro de la carpeta del bot](#4-abrir-la-terminal-dentro-de-la-carpeta-del-bot)
-5. [Preparar el bot (solo la primera vez)](#5-preparar-el-bot-solo-la-primera-vez)
-6. [Primera prueba: el backtest](#6-primera-prueba-el-backtest)
-7. [Buscar la mejor configuración (opcional)](#7-buscar-la-mejor-configuración-opcional)
-8. [Arrancar el bot en modo simulado](#8-arrancar-el-bot-en-modo-simulado)
-9. [Recibir avisos en el móvil por Telegram (opcional)](#9-recibir-avisos-en-el-móvil-por-telegram-opcional)
-10. [Probar con la testnet de Binance](#10-probar-con-la-testnet-de-binance)
-11. [Pasar a dinero real](#11-pasar-a-dinero-real)
-12. [Cambiar la configuración](#12-cambiar-la-configuración)
-13. [Dejarlo funcionando 24 horas (servidor)](#13-dejarlo-funcionando-24-horas-servidor)
-14. [Problemas frecuentes y soluciones](#14-problemas-frecuentes-y-soluciones)
-15. [Chuleta de comandos](#15-chuleta-de-comandos)
+4. [Instalar el bot (doble clic)](#4-instalar-el-bot-doble-clic)
+5. [El panel de control](#5-el-panel-de-control)
+6. [Probar la estrategia con datos pasados (backtest)](#6-probar-la-estrategia-con-datos-pasados-backtest)
+7. [Recibir avisos en el móvil por Telegram](#7-recibir-avisos-en-el-móvil-por-telegram)
+8. [Probar con la testnet de Binance](#8-probar-con-la-testnet-de-binance)
+9. [Pasar a dinero real](#9-pasar-a-dinero-real)
+10. [Cambiar la configuración](#10-cambiar-la-configuración)
+11. [Que funcione siempre: arranque automático y servidor](#11-que-funcione-siempre-arranque-automático-y-servidor)
+12. [Problemas frecuentes y soluciones](#12-problemas-frecuentes-y-soluciones)
+13. [Resumen de archivos](#13-resumen-de-archivos)
 
 ---
 
-## 1. Antes de empezar: tres palabras que debes conocer
+## 1. Qué es y cómo funciona
 
-- **Terminal**: una ventana negra (o blanca) donde escribes órdenes en lugar de hacer clic. En Windows se llama "Símbolo del sistema" o `cmd`; en Mac, "Terminal".
-- **Comando**: una línea de texto que escribes en la terminal y ejecutas pulsando **Enter**. En este manual aparecen en cajas grises, así:
-  ```
-  python --version
-  ```
-  Puedes copiarlo y pegarlo. En la terminal de Windows se pega con **clic derecho** o `Ctrl + V`; en Mac con `Cmd + V`.
-- **Carpeta del bot**: la carpeta donde están los archivos del bot (`bot.py`, `config.py`...). Casi todos los comandos hay que ejecutarlos **estando dentro de esa carpeta**.
+El bot **compra y vende criptomonedas solo** en Binance, siguiendo unas reglas fijas:
 
-> 💡 Si un comando muestra un error, **no sigas**. Ve a la [Parte 14](#14-problemas-frecuentes-y-soluciones), donde están los errores más comunes.
+- **Cuándo compra:** cuando la media de los últimos 20 periodos cruza por encima de la de 50 (el precio empieza a subir con fuerza), siempre que el mercado esté en tendencia alcista (precio por encima de la media de 200) y con movimiento claro (ADX ≥ 20).
+- **Cuánto compra:** lo justo para que, si sale mal, pierdas como máximo un **1 % de tu capital** en esa operación.
+- **Cuándo vende:**
+  - Si el precio cae hasta el **stop loss**, una distancia calculada según lo que suele moverse la moneda (2,5 × ATR).
+  - Si después de subir cae desde su máximo (**trailing stop**, 3 × ATR). El stop va subiendo con el precio para proteger lo ganado.
+  - Si las medias se cruzan a la baja.
+- **Seguridad:** si el capital total cae un **20 %**, vende todo y se detiene.
+
+Tú no tienes que operar: lo controlas desde un **panel en el navegador**, donde ves el gráfico, las posiciones y los resultados.
 
 ---
 
 ## 2. Instalar Python
 
-Python es el "motor" que hace funcionar el bot. Solo se instala una vez.
+Python es el "motor" que hace funcionar el bot. Solo se instala una vez. **Si ya lo tienes, sáltate esta parte.**
 
-### 🪟 Windows
-
-1. Abre el navegador y entra en **https://www.python.org/downloads/**
-2. Pulsa el botón amarillo grande **"Download Python 3.x.x"** (cualquier versión 3.10 o superior sirve).
-3. Abre el archivo descargado (está en la carpeta *Descargas*).
-4. ⚠️ **MUY IMPORTANTE:** en la primera pantalla del instalador, abajo, **marca la casilla "Add python.exe to PATH"**. Si no la marcas, nada funcionará después.
-5. Pulsa **"Install Now"** y espera a que termine. Pulsa **"Close"**.
-
-**Comprueba que funciona:**
-
-1. Pulsa la tecla **Windows**, escribe `cmd` y pulsa **Enter**. Se abre una ventana negra.
-2. Escribe esto y pulsa Enter:
-   ```
-   python --version
-   ```
-3. Debe salir algo como `Python 3.12.6`. ✅ Si sale eso, perfecto. Cierra la ventana.
-
-❌ Si sale *"python no se reconoce como un comando..."*, es que no marcaste la casilla del paso 4. Vuelve a abrir el instalador, elige **"Modify"** → *Next* → marca **"Add Python to environment variables"** → *Install*. Cierra y vuelve a abrir la ventana negra.
-
-### 🍎 Mac
-
-1. Entra en **https://www.python.org/downloads/** y pulsa **"Download Python 3.x.x"**.
-2. Abre el archivo `.pkg` descargado y pulsa **Continuar** en todas las pantallas hasta **Instalar**. Te pedirá tu contraseña del Mac.
-3. Al terminar se abre una carpeta de Python. Haz **doble clic en "Install Certificates.command"** (esto evita errores de conexión más adelante). Se abre una ventana, espera a que diga *"[Process completed]"* y ciérrala.
-
-**Comprueba que funciona:**
-
-1. Pulsa `Cmd + Espacio`, escribe `Terminal` y pulsa Enter.
-2. Escribe:
-   ```
-   python3 --version
-   ```
-3. Debe salir algo como `Python 3.12.6`. ✅
-
-> 🍎 **En Mac, usa siempre `python3` en lugar de `python`** la primera vez (al crear el entorno, Parte 5). Después, con el entorno activado, ya funciona `python` a secas.
+1. Entra en **https://www.python.org/downloads/** y pulsa el botón amarillo **"Download Python 3.x.x"**.
+2. Abre el archivo descargado (en la carpeta *Descargas*).
+3. ⚠️ **MUY IMPORTANTE:** en la primera pantalla del instalador, abajo, **marca la casilla "Add python.exe to PATH"**. Si no la marcas, nada funcionará después.
+4. Pulsa **"Install Now"**, espera y pulsa **"Close"**.
 
 ---
 
 ## 3. Descargar el bot
 
-1. Entra en **https://github.com/solertesting-prog/BINANCE-BOT** (inicia sesión en GitHub si el repositorio es privado).
-2. Pulsa el botón verde **"<> Code"** y después **"Download ZIP"**.
-3. Ve a tu carpeta *Descargas* y **descomprime** el ZIP:
-   - 🪟 Windows: clic derecho sobre el ZIP → **"Extraer todo..."** → *Extraer*.
-   - 🍎 Mac: doble clic sobre el ZIP.
-4. Se crea una carpeta llamada **`BINANCE-BOT-main`**. Muévela a un sitio fácil, por ejemplo a **Documentos**, y cámbiale el nombre a **`binance-bot`** (clic derecho → *Cambiar nombre*).
+1. Entra en **https://github.com/solertesting-prog/BINANCE-BOT** (inicia sesión si el repositorio es privado).
+2. Pulsa el botón verde **"<> Code"** y luego **"Download ZIP"**.
+3. En *Descargas*: clic derecho sobre el ZIP → **"Extraer todo..."** → *Extraer*.
+4. Mueve la carpeta resultante a **Documentos** y llámala **`binance-bot`**.
 
-Al final debes tener una carpeta `Documentos/binance-bot` que dentro tiene archivos como `bot.py`, `config.py`, `README.md`...
-
-> ⚠️ Comprueba que al abrir `binance-bot` ves directamente `bot.py`. Si ves **otra carpeta dentro** con el mismo nombre, entra en ella: esa es la buena.
+Al abrir `Documentos\binance-bot` debes ver archivos como `instalar.bat`, `panel.py`, `bot.py`... (Si ves otra carpeta dentro con el mismo nombre, entra en ella: esa es la buena.)
 
 ---
 
-## 4. Abrir la terminal dentro de la carpeta del bot
+## 4. Instalar el bot (doble clic)
 
-Esto lo harás **cada vez** que quieras usar el bot.
+1. Abre la carpeta **`Documentos\binance-bot`**.
+2. Haz **doble clic en `instalar.bat`**.
+3. Si aparece un aviso azul de **"Windows protegió su PC"**: pulsa **"Más información"** → **"Ejecutar de todas formas"**. (Sale porque Windows no conoce el archivo; es normal.)
+4. Se abre una ventana negra que lo hace todo sola en 1–2 minutos:
+   - prepara Python e instala las piezas del bot,
+   - crea tu archivo de configuración privada (`.env`) en **modo simulado**,
+   - comprueba que todo funciona (debe poner **`passed`**),
+   - crea el icono **"Trading Bot"** en tu escritorio.
+5. Al final pregunta **"¿Quieres que el panel se abra solo al encender el PC? [S,N]"**. Pulsa **S** (recomendado) o **N**.
+6. Se abre el **panel** en tu navegador. 🎉
 
-### 🪟 Windows (la forma más fácil)
-
-1. Abre la carpeta `binance-bot` con el Explorador de archivos (donde ves `bot.py`).
-2. Haz clic en la **barra de dirección** de arriba (donde pone algo como `Este equipo > Documentos > binance-bot`). El texto se vuelve azul.
-3. **Borra lo que hay, escribe `cmd` y pulsa Enter.**
-4. Se abre la ventana negra, ya colocada en la carpeta del bot. Verás algo como:
-   ```
-   C:\Users\TuNombre\Documents\binance-bot>
-   ```
-
-> 🪟 Usa **cmd** (Símbolo del sistema), no PowerShell. Los comandos de este manual están pensados para cmd.
-
-### 🍎 Mac
-
-1. Abre **Terminal** (`Cmd + Espacio` → `Terminal`).
-2. Escribe `cd ` (las letras **c**, **d** y **un espacio**). **No pulses Enter todavía.**
-3. Arrastra la carpeta `binance-bot` desde el Finder **y suéltala dentro de la ventana de Terminal**. Se escribe sola la ruta.
-4. Ahora sí, pulsa **Enter**.
-
-**Comprueba que estás en el sitio correcto** (Windows y Mac):
-
-- 🪟 Windows: escribe `dir` y pulsa Enter.
-- 🍎 Mac: escribe `ls` y pulsa Enter.
-
-Debe aparecer una lista con `bot.py`, `config.py`, etc. ✅ Si no aparecen, no estás en la carpeta correcta; repite esta parte.
+A partir de ahora, para abrir el bot **solo tienes que hacer doble clic en el icono "Trading Bot" del escritorio**.
 
 ---
 
-## 5. Preparar el bot (solo la primera vez)
+## 5. El panel de control
 
-> 🪟 **Atajo para Windows:** haz **doble clic en `instalar.bat`** dentro de la carpeta del bot. Hace automáticamente todos los pasos 5.1 a 5.5. Si al final pone `9 passed`, salta directamente a la Parte 6.
->
-> Además tienes `backtest.bat` (Parte 6), `arrancar-bot.bat` (Parte 8) y `estado-bot.bat` (ver cómo va), que también funcionan con doble clic.
->
-> Si prefieres hacerlo a mano (o usas Mac), sigue los pasos de abajo.
+El panel se abre en tu navegador en la dirección **http://127.0.0.1:8765**. Solo funciona en tu ordenador: nadie más puede verlo ni controlarlo.
 
-Con la terminal abierta **dentro de la carpeta del bot** (Parte 4), ejecuta estos comandos **uno a uno**, pulsando Enter después de cada uno y esperando a que termine.
+### Qué ves
 
-### Paso 5.1 — Crear el "entorno virtual"
+| Zona | Qué muestra |
+|---|---|
+| **Barra superior** | Modo (**Simulado** / **Testnet** / **Dinero real**), estado (● En marcha / Parado) y los botones |
+| **Capital** | Lo que vale tu cuenta ahora (dinero + monedas compradas) |
+| **Resultado total** | Cuánto has ganado o perdido desde que empezaste |
+| **Disponible** | USDT sin invertir |
+| **Posiciones** | Cuántas compras hay abiertas y cuánto dinero hay invertido |
+| **Operaciones** | Operaciones cerradas, % de acierto y resultado |
+| **Gráfico** | Velas de la moneda con las medias, las compras ▲ y ventas ▼ del bot, y las líneas de entrada y stop de la posición abierta. Pasa el ratón para ver los valores de cada vela. Cambia de moneda con las pestañas |
+| **Posiciones abiertas** | Cada compra con su resultado, su stop actual y el botón **Cerrar posición** |
+| **Estrategia** | La configuración que está usando |
+| **Evolución del capital** | Gráfico de tu capital a lo largo del tiempo |
+| **Operaciones cerradas** y **Registro** | Historial completo y todo lo que hace el bot |
 
-Es una cajita aislada donde se instalan las piezas que necesita el bot, sin ensuciar tu ordenador.
+### Botones
 
-- 🪟 Windows:
-  ```
-  python -m venv venv
-  ```
-- 🍎 Mac:
-  ```
-  python3 -m venv venv
-  ```
+| Botón | Qué hace |
+|---|---|
+| **▶ Arrancar** | El bot empieza a operar |
+| **■ Parar** | El bot deja de abrir y cerrar operaciones. Las posiciones abiertas se mantienen (en modo real, su stop sigue puesto en Binance) |
+| **Cerrar posición** | Vende esa moneda ahora mismo, a precio de mercado |
+| **⏻** | Apaga el panel y el bot por completo |
 
-Tarda unos segundos y no muestra nada. Es normal. Aparecerá una carpeta nueva llamada `venv`.
+### Cosas importantes
 
-### Paso 5.2 — Activar el entorno
+- **Puedes cerrar la pestaña del navegador**: el bot sigue funcionando en segundo plano. Para volver a verlo, doble clic en el icono del escritorio.
+- **El bot puede pasar días sin operar.** Es normal: espera a que se den todas las condiciones.
+- El bot revisa los precios **cada minuto** y la estrategia **cada vez que se cierra una vela de 4 horas**.
+- Si apagas el PC con el bot en marcha, **al volver a abrir el panel continúa solo** donde estaba.
+- 💤 **El PC no debe suspenderse** mientras quieras que opere: *Configuración → Sistema → Inicio/apagado y suspensión* → "Nunca" (al menos cuando está enchufado).
 
-- 🪟 Windows:
-  ```
-  venv\Scripts\activate
-  ```
-- 🍎 Mac:
-  ```
-  source venv/bin/activate
-  ```
+> 📅 **Recomendación:** déjalo en modo simulado **varias semanas** antes de pensar en dinero real.
 
-✅ Sabrás que ha funcionado porque al principio de la línea aparece **`(venv)`**, así:
-```
-(venv) C:\Users\TuNombre\Documents\binance-bot>
-```
+### Volver a empezar la simulación desde cero
 
-> 🔁 **Tendrás que activar el entorno cada vez que abras una terminal nueva** para usar el bot. Si no ves `(venv)` al principio, actívalo.
-
-### Paso 5.3 — Instalar las piezas del bot
-
-```
-pip install -r requirements.txt
-```
-
-Saldrán muchas líneas de texto durante uno o dos minutos. Al final debe decir algo como `Successfully installed ccxt-... pandas-...`. ✅
-
-(Si sale un aviso amarillo de *"A new release of pip is available"*, ignóralo; no es un error.)
-
-### Paso 5.4 — Comprobar que todo funciona
-
-```
-python -m pytest tests -q
-```
-
-Debe terminar con algo como **`9 passed`**. ✅ Esto significa que el bot funciona correctamente en tu ordenador.
-
-### Paso 5.5 — Crear tu archivo de configuración privada (`.env`)
-
-El archivo `.env` guarda cosas privadas (como tus claves de Binance). Se crea copiando una plantilla:
-
-- 🪟 Windows:
-  ```
-  copy .env.example .env
-  ```
-- 🍎 Mac:
-  ```
-  cp .env.example .env
-  ```
-
-Por ahora **no hace falta tocarlo**: viene preparado en modo simulado (`MODE=paper`), que no usa dinero ni claves.
-
-> 👀 En Mac, los archivos que empiezan por punto (como `.env`) están ocultos en el Finder. Para verlos, pulsa `Cmd + Mayús + .` (punto) dentro de la carpeta.
-
-🎉 **¡Instalación terminada!**
+Pulsa ⏻ para apagar el panel y borra los archivos `state.json` y `trades_log.csv` de la carpeta del bot. Al abrirlo de nuevo, empieza con 1.000 USDT ficticios.
 
 ---
 
-## 6. Primera prueba: el backtest
+## 6. Probar la estrategia con datos pasados (backtest)
 
-Un **backtest** simula qué habría pasado si el bot hubiera funcionado durante el último año, usando precios reales de Binance. No usa dinero.
+Un **backtest** simula qué habría pasado si el bot hubiera funcionado durante el último año, usando precios reales de Binance.
 
-Con la terminal en la carpeta del bot y `(venv)` activado:
+**Forma fácil:** doble clic en **`backtest.bat`**. Al terminar, se abre un informe con gráficos en el navegador.
 
-```
-python backtest.py --html informe.html
-```
-
-Tarda un poco la primera vez (descarga un año de precios de Bitcoin). Luego muestra un resumen como este:
-
-```
-=== Backtest BTC/USDT 1h | SMA 20/50 | SL 3.0% | TP 8.0% ===
-Periodo:            2025-10-19 → 2026-10-19
-Capital final:      1087.20 USDT
-Rentabilidad:       +8.72%
-Comprar y mantener: +15.30%
-Máx. drawdown:      -12.40%
-...
-```
-
-**Abre el informe con gráficos:**
-
-- 🪟 Windows:
-  ```
-  start informe.html
-  ```
-- 🍎 Mac:
-  ```
-  open informe.html
-  ```
-
-Se abre en el navegador.
-
-### ¿Cómo leo los resultados?
+### Cómo leer los resultados
 
 | Dato | Qué significa | Qué buscar |
 |---|---|---|
-| **Rentabilidad** | Cuánto habrías ganado o perdido | Positiva, claro |
-| **Comprar y mantener** | Cuánto habrías ganado comprando Bitcoin el primer día sin hacer nada más | Lo ideal es que el bot gane más, o parecido pero con menos caídas |
-| **Máx. drawdown** | La peor caída que habrías sufrido por el camino | Pregúntate: ¿aguantaría ver mi dinero bajar este %? |
-| **Operaciones** | Cuántas compras-ventas hizo | Con menos de 20–30, el resultado puede ser suerte |
+| **Rentabilidad** | Cuánto habrías ganado o perdido | Positiva |
+| **Comprar y mantener** | Lo que habrías ganado comprando el primer día y esperando | El bot debería ganar más, o parecido con mucho menos riesgo |
+| **Máx. drawdown** | La peor caída por el camino | ¿Aguantarías ver bajar tu dinero ese %? |
+| **Operaciones** | Cuántas compras-ventas hizo | Con menos de 20–30, puede ser pura suerte |
 | **Profit factor** | Lo ganado entre lo perdido | Por encima de 1,3–1,5 empieza a ser interesante |
 
-### Probar otras configuraciones
+### Pruebas avanzadas (opcional)
 
-Puedes probar variantes sin tocar nada, añadiendo opciones al comando:
+Abre una terminal en la carpeta (haz clic en la barra de dirección del Explorador, escribe `cmd` y pulsa Enter) y escribe, por ejemplo:
 
 ```
-python backtest.py --ma ema --trend 200 --adx 20 --trailing 0.05 --tp 0
+backtest.bat --days 1095
+backtest.bat --symbol BTC/USDT,ETH/USDT,SOL/USDT
+backtest.bat --timeframe 1d --risk 0.02
 ```
 
 | Opción | Qué hace |
 |---|---|
-| `--days 730` | Prueba 2 años en lugar de 1 |
-| `--timeframe 4h` | Usa velas de 4 horas en lugar de 1 hora |
-| `--fast 10 --slow 30` | Cambia las medias móviles |
-| `--ma ema` | Usa medias exponenciales (reaccionan antes) |
-| `--trend 200` | Solo compra cuando el precio está por encima de la media de 200 |
-| `--adx 20` | Solo compra cuando hay tendencia clara (evita mercados laterales) |
-| `--trailing 0.05` | Vende si cae un 5 % desde el máximo alcanzado |
-| `--sl 0.03` | Stop loss del 3 % |
-| `--tp 0.08` | Take profit del 8 % (`--tp 0` lo desactiva) |
-| `--symbol ETH/USDT` | Prueba con Ethereum u otra moneda |
+| `--days 1095` | Prueba 3 años en lugar de 1 |
+| `--symbol ETH/USDT` | Otra moneda (o varias separadas por comas) |
+| `--timeframe 1h` | Velas de 1 hora (`1h`, `4h`, `1d`) |
+| `--risk 0.02` | Arriesga un 2 % por operación |
+| `--stop pct --sl 0.03` | Stop fijo del 3 % en lugar de por volatilidad |
+| `--atr-stop 3 --atr-trail 4` | Stops más holgados |
+| `--trend 0` / `--adx 0` | Quita los filtros |
+
+Para buscar automáticamente la mejor combinación, usa el optimizador (tarda unos minutos):
+
+```
+venv\Scripts\python optimize.py --days 1095
+```
+
+👉 Fíjate solo en la línea **"Resultado fuera de muestra"**: es lo que habría pasado de verdad. Ignora los números espectaculares del "Top 5": suelen ser casualidad.
 
 ---
 
-## 7. Buscar la mejor configuración (opcional)
+## 7. Recibir avisos en el móvil por Telegram
 
-El **optimizador** prueba cientos de combinaciones automáticamente y, lo más importante, comprueba si funcionan en datos que **no ha visto** (para no engañarte con resultados de pura suerte).
+Te llegará un mensaje cada vez que el bot compre o venda, un resumen diario y cualquier aviso importante.
 
-```
-python optimize.py
-```
-
-Tarda entre 1 y 5 minutos. Al final verás algo así:
-
-```
-=== Resultado fuera de muestra (lo que habría pasado de verdad) ===
-  Optimizando en cada tramo: +11.9%
-  Config actual (config.py): -12.8%
-  Comprar y mantener:        -1.2%
-```
-
-👉 **La línea importante es "Resultado fuera de muestra".** Ignora los números espectaculares del "Top 5": suelen ser casualidad.
-
-Si te sale un aviso ⚠️ de que *los parámetros cambian mucho entre tramos*, significa que no hay una configuración fiable: mejor no cambiar nada.
-
-Si quieres aplicar una configuración, ve a la [Parte 12](#12-cambiar-la-configuración).
-
----
-
-## 8. Arrancar el bot en modo simulado
-
-Ahora el bot funcionará **en tiempo real** con precios reales de Binance, pero con **1000 USDT ficticios**. Es la mejor forma de ver cómo se comporta antes de arriesgar nada.
-
-```
-python bot.py
-```
-
-Verás algo como:
-
-```
-2026-10-19 11:00:05 INFO 🤖 Bot iniciado | BTC/USDT 1h | SMA 20/50 | SL 3.0% | TP 8.0% | modo paper
-2026-10-19 11:00:06 INFO Vela cerrada 2026-10-19 10:00 | precio 67234.10 | señal 0 | capital 1000.00
-```
-
-- **"señal 0"** significa "no hacer nada". Es lo normal la mayor parte del tiempo. El bot puede pasar **días** sin operar.
-- Revisa el precio cada minuto y analiza la estrategia cada hora.
-- Cuando compre o venda, lo verás con 🟢 COMPRA o 🔴 VENTA.
-
-### ⚠️ Reglas importantes
-
-- **No cierres la ventana**: si la cierras, el bot se para.
-- **Tu ordenador no debe apagarse ni suspenderse.**
-  - 🪟 Windows: *Configuración → Sistema → Inicio/apagado y suspensión* → pon "Nunca" en suspensión (al menos cuando está enchufado).
-  - 🍎 Mac: *Ajustes del Sistema → Batería* (o *Pantalla*) → *Opciones* → activa "Evitar la suspensión automática cuando la pantalla esté apagada".
-- **Para parar el bot**: pulsa `Ctrl + C` en la ventana. Puedes volver a arrancarlo cuando quieras; **recuerda dónde lo dejó** (lo guarda en `state.json`).
-
-### Ver cómo va
-
-Abre **otra** terminal en la carpeta del bot (Parte 4), activa el entorno (Paso 5.2) y escribe:
-
-```
-python bot.py --status
-```
-
-Te muestra si tiene una compra abierta, el stop actual, el saldo simulado y las últimas operaciones.
-
-También puedes abrir el archivo **`trades_log.csv`** con Excel para ver todas las operaciones cerradas.
-
-> 📅 **Recomendación:** déjalo en modo simulado **varias semanas** antes de pensar en dinero real.
-
-### Volver a empezar desde cero
-
-Para el bot (`Ctrl + C`) y borra los archivos `state.json` y `trades_log.csv` de la carpeta del bot. Al arrancarlo de nuevo, empieza con 1000 USDT ficticios.
-
----
-
-## 9. Recibir avisos en el móvil por Telegram (opcional)
-
-Así te llega un mensaje al móvil cada vez que el bot compra o vende, y un resumen diario.
-
-1. Instala **Telegram** en el móvil si no lo tienes.
-2. Busca el usuario **@BotFather** (tiene una marca azul de verificado) y ábrelo.
-3. Escríbele `/newbot`.
-4. Te pedirá un **nombre** (pon el que quieras, por ejemplo `Mi bot trading`) y luego un **usuario** que termine en `bot` (por ejemplo `albert_trading_bot`).
-5. Te responderá con un mensaje que contiene un **token**, algo como:
-   `7123456789:AAH-xxxxxxxxxxxxxxxxxxxxxxxxxxxx`
-   Cópialo. ⚠️ No lo compartas con nadie.
-6. Busca tu bot nuevo en Telegram (por el usuario que le pusiste), ábrelo y pulsa **Iniciar** (o escríbele "hola").
-7. En el navegador del ordenador, abre esta dirección **cambiando `TU_TOKEN` por tu token**:
+1. En Telegram, busca **@BotFather** (con la marca azul de verificado) y escríbele `/newbot`.
+2. Ponle un **nombre** (por ejemplo `Mi trading bot`) y un **usuario** que termine en `bot` (por ejemplo `albert_trading_bot`).
+3. Te dará un **token**, algo como `7123456789:AAH-xxxxxxxx`. Cópialo y no lo compartas.
+4. Busca tu bot nuevo en Telegram, ábrelo y pulsa **Iniciar**.
+5. En el navegador abre esta dirección **cambiando `TU_TOKEN` por tu token** (sin espacios):
+   `https://api.telegram.org/botTU_TOKEN/getUpdates`
+6. Busca `"chat":{"id":` seguido de un número: ese número es tu **chat_id**. (Si sale `"result":[]`, escribe algo a tu bot y recarga.)
+7. Abre el archivo `.env` de la carpeta del bot con el Bloc de notas (clic derecho → *Abrir con* → *Bloc de notas*) y rellena:
    ```
-   https://api.telegram.org/botTU_TOKEN/getUpdates
+   TELEGRAM_TOKEN=7123456789:AAH-xxxxxxxx
+   TELEGRAM_CHAT_ID=123456789
    ```
-   (Ojo: entre `bot` y el token **no hay espacio ni barra**.)
-8. Verás un texto. Busca `"chat":{"id":` seguido de un número, por ejemplo `"chat":{"id":123456789`. Ese número es tu **chat_id**.
-   (Si sale vacío `"result":[]`, escribe otro mensaje a tu bot y recarga la página.)
-9. Abre el archivo `.env`:
-   - 🪟 Windows: `notepad .env`
-   - 🍎 Mac: `open -e .env`
-10. Rellena estas dos líneas (sin espacios ni comillas):
-    ```
-    TELEGRAM_TOKEN=7123456789:AAH-xxxxxxxxxxxxxxxxxxxxxxxxxxxx
-    TELEGRAM_CHAT_ID=123456789
-    ```
-11. **Guarda** el archivo (`Ctrl + S` o `Cmd + S`) y ciérralo.
-12. Si el bot estaba en marcha, páralo (`Ctrl + C`) y arráncalo otra vez con `python bot.py`. Te llegará un mensaje "🤖 Bot iniciado". ✅
+8. Guarda (`Ctrl + G` o `Ctrl + S`). En el panel pulsa ⏻ y vuelve a abrirlo desde el icono. Te llegará "🤖 Bot iniciado" cuando lo arranques.
 
 ---
 
-## 10. Probar con la testnet de Binance
+## 8. Probar con la testnet de Binance
 
-La **testnet** es una copia de Binance con dinero de mentira. Sirve para comprobar que el bot envía órdenes reales correctamente sin arriesgar nada.
+La **testnet** es una copia de Binance con dinero de mentira. Sirve para comprobar que el bot envía **órdenes reales** (incluido el stop puesto en Binance) sin arriesgar nada.
 
-1. Entra en **https://testnet.binance.vision/**
-2. Pulsa **"Log In with GitHub"** e inicia sesión con tu cuenta de GitHub.
-3. Pulsa **"Generate HMAC_SHA256 Key"**.
-4. Escribe una descripción cualquiera (por ejemplo `bot`) y pulsa **Generate**.
-5. Te mostrará **API Key** y **Secret Key**. ⚠️ **Copia las dos ahora**: la Secret Key solo se muestra una vez.
-6. Abre el archivo `.env` (`notepad .env` en Windows, `open -e .env` en Mac) y déjalo así:
+1. Entra en **https://testnet.binance.vision/** → **"Log In with GitHub"**.
+2. Pulsa **"Generate HMAC_SHA256 Key"**, ponle una descripción y pulsa *Generate*.
+3. Copia la **API Key** y la **Secret Key** (la Secret Key solo se muestra una vez).
+4. Abre `.env` con el Bloc de notas y déjalo así:
    ```
    MODE=live
    TESTNET=true
    BINANCE_API_KEY=pega_aqui_tu_api_key
    BINANCE_API_SECRET=pega_aqui_tu_secret_key
    ```
-7. Guarda y cierra.
-8. Borra `state.json` y `trades_log.csv` si existen (para no mezclar con el modo simulado).
-9. Arranca el bot:
-   ```
-   python bot.py
-   ```
-   Debe decir `modo live (testnet)`. ✅
-
-La testnet te da saldo ficticio automáticamente. Ojo: a veces Binance reinicia la testnet y borra los saldos; es normal.
+5. Pulsa ⏻ en el panel, borra `state.json` y `trades_log.csv`, y abre el panel de nuevo. Arriba debe poner **Testnet**.
 
 ---
 
-## 11. Pasar a dinero real
+## 9. Pasar a dinero real
 
 > ⚠️ **Antes de seguir, sé honesto contigo:**
-> - ¿Lo has tenido **varias semanas** en modo simulado?
-> - ¿Los resultados te convencen?
+> - ¿Lo has tenido **varias semanas** en simulado y los resultados te convencen?
 > - ¿Vas a usar **solo dinero que puedes permitirte perder entero**?
 >
 > Si alguna respuesta es "no", espera. Ningún bot garantiza ganancias.
 
-### 11.1 Crear las claves de API en Binance
+### 9.1 Crear las claves de API en Binance
 
-1. Entra en **https://www.binance.com** con tu cuenta (debe estar verificada).
-2. Pulsa en tu **icono de perfil** (arriba a la derecha) → **"Gestión de API"** (*API Management*).
-3. Pulsa **"Crear API"** → elige **"Generada por el sistema"** → ponle un nombre (por ejemplo `bot-trading`).
-4. Completa la verificación de seguridad (código de email, SMS o app).
-5. Copia la **API Key** y la **Secret Key**. ⚠️ La Secret Key solo se muestra una vez.
-6. Pulsa **"Editar restricciones"** y deja los permisos **exactamente así**:
-   - ✅ **Activar lectura** (Enable Reading)
-   - ✅ **Activar el trading spot y de margen** (Enable Spot & Margin Trading)
-   - ❌ **Activar retiros** (Enable Withdrawals) → **NUNCA lo actives.** Así, aunque alguien robara tus claves, no podría sacar dinero de tu cuenta.
+1. Entra en **https://www.binance.com** → icono de perfil → **"Gestión de API"**.
+2. **"Crear API"** → **"Generada por el sistema"** → nombre `trading-bot` → verificación de seguridad.
+3. Copia la **API Key** y la **Secret Key** (solo se muestra una vez).
+4. **"Editar restricciones"** y deja los permisos **exactamente así**:
+   - ✅ **Activar lectura**
+   - ✅ **Activar el trading spot y de margen**
+   - ❌ **Activar retiros → NUNCA.** Así, aunque alguien robara tus claves, no podría sacar dinero.
    - ❌ Todo lo demás, desactivado.
-7. **Restricción de IP** (muy recomendable si usas un servidor con IP fija): elige "Restringir el acceso solo a IPs de confianza" y pon la IP del servidor. En casa la IP suele cambiar, así que puedes dejarlo sin restringir, pero entonces es aún más importante no tener activados los retiros.
-8. Guarda.
+5. Si tienes IP fija (o usas un servidor), restringe el acceso a esa IP.
 
-### 11.2 Configurar el bot
+### 9.2 Configurar el bot
 
-1. Abre `.env` y déjalo así:
+1. Abre `.env` con el Bloc de notas:
    ```
    MODE=live
    TESTNET=false
    BINANCE_API_KEY=tu_api_key_real
    BINANCE_API_SECRET=tu_secret_key_real
    ```
-2. Guarda y cierra.
-3. Borra `state.json` y `trades_log.csv` (para empezar limpio).
+2. Pulsa ⏻ en el panel, borra `state.json` y `trades_log.csv`, y vuelve a abrirlo. Arriba debe poner **Dinero real** en rojo.
 
-### 11.3 Preparar la cuenta
+### 9.3 Preparar la cuenta
 
-- El bot opera con el **USDT libre** de tu cuenta Spot. Usa el **95 %** de ese saldo en cada compra.
-- 👉 **Deja en la cuenta Spot solo los USDT que quieras que use el bot.** El resto, muévelo a otra cartera (por ejemplo, a *Fondos* o *Earn*).
-- Binance exige un mínimo de unos **5–10 USDT** por orden.
-- **Empieza con poco** (por ejemplo, 50–100 USDT) durante las primeras semanas.
+- El bot usa el **USDT de tu cuenta Spot**. **Deja ahí solo lo que quieras que use**; el resto, muévelo a *Fondos* o *Earn*.
+- Solo vende lo que **él** ha comprado: no toca otras monedas que tengas.
+- **Empieza con poco** (por ejemplo 100–200 USDT). Con riesgo del 1 %, las compras serán pequeñas y Binance exige un mínimo de unos 5–10 USDT por orden.
 
-### 11.4 Arrancar
+### 9.4 Protecciones en modo real
 
-```
-python bot.py
-```
-
-Debe decir `modo live` (sin "testnet"). A partir de aquí opera con dinero real. 💰
+- **Stop puesto en Binance:** al comprar, el bot deja una orden de stop loss **dentro de Binance**. Si tu PC se apaga o pierde internet, Binance venderá igualmente si el precio cae hasta ahí. El panel lo indica con "· en Binance". Cuando el trailing stop sube, el bot mueve esa orden.
+- **Doble vigilancia:** además, el bot vigila el precio cada minuto por su cuenta.
+- **Reconciliación:** al arrancar, comprueba si mientras estaba apagado saltó algún stop o vendiste algo a mano, y lo apunta.
+- **Reintentos:** si falla la conexión, reintenta las consultas. Las órdenes de compra o venta **nunca** se repiten a ciegas.
 
 ### 🔒 Reglas de seguridad
 
-- **Nunca compartas el archivo `.env`** ni hagas capturas de pantalla donde se vean tus claves.
-- El archivo `.env` **no se sube a GitHub** (está excluido a propósito). No lo cambies.
-- Si crees que alguien ha visto tus claves: entra en Binance → Gestión de API → **bórralas** y crea unas nuevas.
+- **Nunca compartas el archivo `.env`** ni hagas capturas donde se vean tus claves. No se sube a GitHub (está excluido a propósito).
+- Si crees que alguien ha visto tus claves: Binance → Gestión de API → **bórralas** y crea otras.
+- No tengas el bot funcionando a la vez en dos ordenadores con la misma cuenta.
 
 ---
 
-## 12. Cambiar la configuración
+## 10. Cambiar la configuración
 
-Todos los ajustes de la estrategia están en el archivo **`config.py`**.
+Toda la estrategia está en **`config.py`**.
 
-1. Para el bot si está en marcha (`Ctrl + C`).
-2. Abre `config.py`:
-   - 🪟 Windows: `notepad config.py`
-   - 🍎 Mac: `open -e config.py`
-3. Cambia **solo el número** que hay después del `=`. Por ejemplo, para activar el filtro de tendencia:
+1. Pulsa ⏻ en el panel.
+2. Clic derecho sobre `config.py` → *Abrir con* → **Bloc de notas**.
+3. Cambia **solo el valor** que hay después del `=` y guarda.
+4. Vuelve a abrir el panel desde el icono.
 
-   Antes:
-   ```python
-   trend_filter: int = 0        # solo compra si el precio...
-   ```
-   Después:
-   ```python
-   trend_filter: int = 200      # solo compra si el precio...
-   ```
+⚠️ **Cuidado al editar:** no borres espacios del principio de la línea, ni los `:` ni el `=`. Los decimales van con **punto** (`0.05`, no `0,05`). Los textos van entre comillas (`"ema"`). `0.01` significa 1 %.
 
-4. Guarda y vuelve a arrancar el bot.
+### Ajustes principales
 
-⚠️ **Cuidado al editar:**
-- No borres los espacios del principio de la línea.
-- No borres los dos puntos `:` ni el `=`.
-- Los decimales van con **punto**, no con coma: `0.05`, **no** `0,05`.
-- Los textos van entre comillas: `ma_type: str = "ema"`.
-- `0.03` significa **3 %**; `0.05` significa **5 %**.
-
-### Ajustes más útiles
-
-| Ajuste | Qué hace | Ejemplo |
+| Ajuste | Qué hace | Valor por defecto |
 |---|---|---|
-| `symbol` | Moneda que opera | `"BTC/USDT"`, `"ETH/USDT"` |
-| `timeframe` | Tamaño de las velas | `"1h"`, `"4h"`, `"1d"` |
+| `symbols` | Monedas que opera | `("BTC/USDT",)` · varias: `("BTC/USDT", "ETH/USDT", "SOL/USDT")` |
+| `timeframe` | Tamaño de las velas | `"4h"` |
 | `fast` / `slow` | Medias móviles | `20` / `50` |
-| `ma_type` | Tipo de media | `"sma"` o `"ema"` |
-| `trend_filter` | Filtro de tendencia (0 = no) | `200` |
-| `adx_min` | Filtro de mercado lateral (0 = no) | `20` |
-| `position_pct` | % del saldo por operación | `0.95` (95 %) |
-| `stop_loss` | Venta si cae este % | `0.03` (3 %) |
-| `trailing_stop` | Venta si cae este % desde el máximo (0 = no) | `0.05` (5 %) |
-| `take_profit` | Venta si sube este % (0 = no) | `0.08` (8 %) |
-| `max_drawdown` | Se detiene si pierdes este % en total | `0.20` (20 %) |
-| `paper_balance` | Saldo ficticio del modo simulado | `1000.0` |
+| `ma_type` | Tipo de media | `"ema"` |
+| `trend_filter` | Solo compra sobre la media de N velas (0 = no) | `200` |
+| `adx_min` | Solo compra con tendencia clara (0 = no) | `20` |
+| `stop_mode` | `"atr"` (según volatilidad) o `"pct"` (porcentaje fijo) | `"atr"` |
+| `atr_stop_mult` | Stop inicial a N × ATR | `2.5` |
+| `atr_trail_mult` | Trailing a N × ATR del máximo (0 = no) | `3.0` |
+| `stop_loss` / `trailing_stop` | Stops en % (modo `"pct"`) | `0.03` / `0` |
+| `take_profit` | Vender al ganar este % (0 = dejar correr) | `0` |
+| `risk_per_trade` | Pérdida máxima por operación | `0.01` (1 %) |
+| `position_pct` | Tope de capital en una sola compra | `0.95` |
+| `max_open_positions` | Monedas con compra abierta a la vez | `3` |
+| `max_drawdown` | Se detiene si pierdes este % en total | `0.20` |
+| `exchange_stops` | Poner el stop dentro de Binance (modo real) | `True` |
+| `paper_balance` | Saldo ficticio del simulado | `1000.0` |
 
-> 💡 Antes de cambiar algo, pruébalo con el backtest (Parte 6) para ver si mejora.
+> 💡 Con **varias monedas**, baja `position_pct` (por ejemplo a `0.4`) para que una sola no se quede con todo el dinero.
+> 💡 Antes de cambiar algo, pruébalo con el backtest (Parte 6).
 
 ---
 
-## 13. Dejarlo funcionando 24 horas (servidor)
+## 11. Que funcione siempre: arranque automático y servidor
 
-Si no quieres tener tu ordenador encendido siempre, puedes alquilar un **servidor en la nube (VPS)** por unos 4–6 € al mes (por ejemplo Hetzner, Contabo, DigitalOcean u OVH). Esta parte es algo más técnica; hazla solo cuando el bot ya te funcione en tu ordenador.
+### Arranque automático al encender el PC
 
-1. Contrata un VPS con **Ubuntu 24.04** (el plan más barato sobra).
-   ⚠️ Elige un servidor en **Europa**: Binance bloquea las conexiones desde algunos países (por ejemplo, Estados Unidos).
-2. El proveedor te dará una **IP** (por ejemplo `95.216.12.34`) y una contraseña de `root`.
-3. Conéctate desde tu terminal (funciona igual en Windows y Mac):
+- **Activar:** doble clic en `autoarranque-activar.bat`.
+- **Quitar:** doble clic en `autoarranque-quitar.bat`.
+
+Con el arranque automático, al encender el PC el panel se abre en segundo plano (sin ventana) y, si el bot estaba en marcha, continúa solo. Para verlo, doble clic en el icono del escritorio.
+
+### Servidor en la nube (opcional, avanzado)
+
+Si no quieres tener tu PC encendido siempre, puedes alquilar un servidor Linux por unos 4–6 €/mes (Hetzner, Contabo, OVH...). Elige uno en **Europa** (Binance bloquea algunos países, como EE. UU.). Instrucciones resumidas, con **Ubuntu 24.04**:
+
+```
+apt update && apt install -y python3-venv git
+adduser bot
+su - bot
+git clone https://github.com/solertesting-prog/BINANCE-BOT.git trading-bot
+cd trading-bot && python3 -m venv venv && venv/bin/pip install -r requirements.txt
+cp .env.example .env && nano .env
+exit
+sed 's/usuario/bot/g' /home/bot/trading-bot/deploy/trading-bot.service > /etc/systemd/system/trading-bot.service
+systemctl daemon-reload && systemctl enable --now trading-bot
+```
+
+Comprueba con `systemctl status trading-bot` (debe poner `active (running)`) y mira el registro con `journalctl -u trading-bot -f`. En el servidor el bot funciona sin panel; el estado se consulta con `venv/bin/python bot.py --status`.
+
+---
+
+## 12. Problemas frecuentes y soluciones
+
+### Al hacer doble clic en el icono no pasa nada
+- Espera unos segundos: el panel tarda un poco en arrancar.
+- Abre tú el navegador en **http://127.0.0.1:8765**.
+- Si sigue sin abrir, mira si hay un archivo **`panel_error.txt`** en la carpeta del bot: ahí está el motivo. Cópialo y pregunta a Claude.
+- Prueba con `arrancar-bot.bat`, que muestra los errores en pantalla.
+
+### El panel pone un aviso rojo "No se pudo conectar con Binance"
+- Comprueba tu conexión a internet.
+- Si estás en modo real: revisa las claves en `.env` (sin espacios), que tengas activado **"Spot & Margin Trading"**, y que `TESTNET` sea `true` con claves de testnet y `false` con claves reales.
+- Error **451** o *restricted location*: Binance bloquea tu ubicación (por ejemplo, servidores en EE. UU.).
+
+### "python" no se reconoce como un comando
+No marcaste **"Add python.exe to PATH"**. Vuelve a abrir el instalador de Python → **Modify** → *Next* → marca **"Add Python to environment variables"** → *Install*. Después, repite `instalar.bat`.
+
+### `Timestamp for this request is outside of the recvWindow`
+El reloj de tu PC no está en hora: *Configuración → Hora e idioma → Fecha y hora* → **"Sincronizar ahora"**.
+
+### "Saldo insuficiente para comprar"
+No hay USDT suficiente en tu cuenta **Spot**, o la compra calculada es menor que el mínimo de Binance. Añade USDT o sube `risk_per_trade`.
+
+### "No se pudo colocar el stop en Binance"
+Suele pasar con cantidades muy pequeñas (por debajo del mínimo de Binance). El bot **sigue vigilando el precio por su cuenta**, pero esa protección solo funciona con el PC encendido. Usa importes algo mayores.
+
+### Banner rojo "Interruptor de seguridad activado"
+El bot perdió más del límite (20 %), vendió todo y se paró para protegerte. **Piensa qué ha pasado antes de seguir.** Para continuar, pulsa **Reactivar** y luego **Arrancar**.
+
+### El bot lleva días sin operar
+Es normal con velas de 4 horas y los filtros activados. Mira en el **Registro** del panel que siga apareciendo "vela … cerrada" cada 4 horas.
+
+### El puerto 8765 está ocupado
+Añade `PANEL_PORT=8766` al archivo `.env` y abre el panel en **http://127.0.0.1:8766**.
+
+### Otro error
+Copia el mensaje (del panel, de `bot.log` o de `panel_error.txt`) y pregúntale a Claude.
+
+---
+
+## 13. Resumen de archivos
+
+| Archivo | Para qué sirve |
+|---|---|
+| 🖱️ **Icono "Trading Bot"** (escritorio) | Abre el panel. Es lo único que necesitas usar a diario |
+| `instalar.bat` | Instala o actualiza todo (repetirlo no borra tus datos) |
+| `abrir-panel.bat` | Igual que el icono del escritorio |
+| `backtest.bat` | Prueba la estrategia con el último año y abre el informe |
+| `autoarranque-activar.bat` / `autoarranque-quitar.bat` | Abrir el panel solo al encender el PC |
+| `arrancar-bot.bat` / `estado-bot.bat` | Modo consola sin panel (alternativa) |
+| `.env` | Tus claves y el modo (simulado / testnet / real). **Privado** |
+| `config.py` | La estrategia y la gestión del riesgo |
+| `state.json` | Lo que recuerda el bot (posiciones abiertas, saldo simulado) |
+| `trades_log.csv` | Todas las operaciones cerradas (se abre con Excel) |
+| `bot.log` | Registro detallado de todo lo que hace |
+
+### Actualizar a una versión nueva
+
+1. Pulsa ⏻ en el panel.
+2. Descarga el ZIP nuevo de GitHub y copia sus archivos **encima** de tu carpeta `binance-bot`, reemplazando. **No borres** `.env`, `state.json` ni `trades_log.csv`, y si modificaste `config.py`, guárdalo antes.
+3. Doble clic en `instalar.bat`.
+
+---
+
+## Anexo: instalación en Mac
+
+1. Instala Python desde **https://www.python.org/downloads/** y, al terminar, haz doble clic en **"Install Certificates.command"** (en la carpeta de Python que se abre).
+2. Descarga y descomprime el bot en *Documentos* (Parte 3).
+3. Abre **Terminal**, escribe `cd ` (con espacio), arrastra la carpeta del bot a la ventana y pulsa Enter.
+4. Ejecuta, uno a uno:
    ```
-   ssh root@95.216.12.34
-   ```
-   Escribe `yes` si pregunta y luego la contraseña (no se ve mientras la escribes; es normal).
-4. Ya dentro del servidor, copia estos comandos uno a uno:
-   ```
-   apt update && apt install -y python3-venv git
-   adduser bot
-   su - bot
-   git clone https://github.com/solertesting-prog/BINANCE-BOT.git trading-bot
-   cd trading-bot
    python3 -m venv venv
    source venv/bin/activate
    pip install -r requirements.txt
    cp .env.example .env
-   nano .env
+   python -m pytest tests -q
+   python panel.py
    ```
-   - `adduser bot` te pedirá una contraseña para el usuario nuevo; el resto de preguntas puedes dejarlas vacías pulsando Enter.
-   - Si el repositorio es **privado**, `git clone` te pedirá usuario y contraseña de GitHub. Como contraseña necesitas un *token*: en GitHub → *Settings → Developer settings → Personal access tokens → Generate new token*.
-   - `nano .env` abre el editor: rellena tus datos, guarda con `Ctrl + O`, Enter, y sal con `Ctrl + X`.
-5. Vuelve al usuario administrador e instala el servicio:
-   ```
-   exit
-   sed 's/usuario/bot/g' /home/bot/trading-bot/deploy/trading-bot.service > /etc/systemd/system/trading-bot.service
-   systemctl daemon-reload
-   systemctl enable --now trading-bot
-   ```
-6. Comprueba que funciona:
-   ```
-   systemctl status trading-bot
-   ```
-   Debe poner **`active (running)`** en verde. ✅ Pulsa `q` para salir.
-
-Ya puedes cerrar la terminal: el bot sigue funcionando en el servidor, se reinicia solo si falla y arranca solo si el servidor se reinicia.
-
-**Comandos útiles en el servidor:**
-
-| Para... | Comando |
-|---|---|
-| Ver el log en directo | `journalctl -u trading-bot -f` (salir: `Ctrl + C`) |
-| Ver el estado del bot | `cd /home/bot/trading-bot && sudo -u bot venv/bin/python bot.py --status` |
-| Reiniciar tras cambiar la configuración | `systemctl restart trading-bot` |
-| Pararlo | `systemctl stop trading-bot` |
-
-> ⚠️ No tengas el bot funcionando a la vez en tu ordenador y en el servidor con la misma cuenta de Binance: se pisarían las órdenes.
-
----
-
-## 14. Problemas frecuentes y soluciones
-
-### "python" no se reconoce como un comando (Windows)
-No marcaste **"Add python.exe to PATH"** al instalar. Mira la solución al final de la [Parte 2](#2-instalar-python). Cierra y vuelve a abrir la terminal después.
-
-### `command not found: python` (Mac)
-Usa `python3` en lugar de `python`. Con el entorno activado `(venv)`, `python` ya funciona.
-
-### `No module named 'ccxt'` (o `pandas`, `dotenv`...)
-El entorno no está activado. Comprueba que ves `(venv)` al principio de la línea. Si no, actívalo (Paso 5.2). Si sigue fallando, repite `pip install -r requirements.txt`.
-
-### `No such file or directory: 'requirements.txt'` o `can't open file 'bot.py'`
-No estás dentro de la carpeta del bot. Repite la [Parte 4](#4-abrir-la-terminal-dentro-de-la-carpeta-del-bot).
-
-### `venv\Scripts\activate` no funciona / "la ejecución de scripts está deshabilitada"
-Estás en **PowerShell** en lugar de **cmd**. Cierra la ventana y ábrela con el método de la Parte 4 (escribiendo `cmd` en la barra de dirección).
-
-### `Faltan BINANCE_API_KEY / BINANCE_API_SECRET en el archivo .env`
-Tienes `MODE=live` pero no has puesto las claves, o el archivo `.env` no existe o no se llama exactamente `.env`.
-- En Windows, a veces el Bloc de notas lo guarda como `.env.txt`. Escribe `dir` en la terminal y comprueba el nombre. Si es `.env.txt`, renómbralo con: `ren .env.txt .env`
-
-### Error `451` o `Service unavailable from a restricted location`
-Binance bloquea tu ubicación o la de tu servidor (por ejemplo, servidores en EE. UU.). Usa un servidor en Europa.
-
-### `Invalid API-key, IP, or permissions for action`
-- Revisa que copiaste bien las claves (sin espacios al principio o al final).
-- Revisa que tienes activado **"Spot & Margin Trading"** en Binance.
-- Si pusiste restricción de IP, comprueba que la IP es la correcta.
-- Si usas claves de la **testnet**, `TESTNET` debe estar en `true`. Con claves reales, en `false`.
-
-### `Timestamp for this request is outside of the recvWindow`
-El reloj de tu ordenador no está en hora. El bot intenta corregirlo solo, pero si persiste:
-- 🪟 Windows: *Configuración → Hora e idioma → Fecha y hora* → pulsa **"Sincronizar ahora"**.
-- 🍎 Mac: *Ajustes del Sistema → General → Fecha y hora* → activa "Ajustar automáticamente".
-
-### `Saldo insuficiente para comprar`
-No tienes USDT suficiente en la cuenta **Spot** (mínimo unos 10 USDT). Pasa USDT a Spot desde la app de Binance.
-
-### `El bot está detenido por el interruptor de drawdown`
-El bot perdió más del límite de seguridad (20 % por defecto), vendió y se paró para protegerte. **Antes de reactivarlo, piensa qué ha pasado.** Si quieres continuar, borra el archivo `state.json` y arráncalo.
-
-### El bot lleva días sin hacer nada
-Es normal. Con velas de 1 hora, la estrategia puede pasar días sin señal, sobre todo con los filtros activados. Comprueba con `python bot.py --status` que sigue vivo y mira `bot.log`.
-
-### El backtest falla con un error de conexión o SSL (Mac)
-No ejecutaste "Install Certificates.command". Ve a *Aplicaciones → Python 3.x* y haz doble clic en él.
-
-### Otro error que no sale aquí
-Copia el mensaje de error completo (las últimas 10–15 líneas) y pregúntale a Claude o búscalo en Google.
-
----
-
-## 15. Chuleta de comandos
-
-**Cada vez que abras una terminal nueva:**
-
-| | 🪟 Windows | 🍎 Mac |
-|---|---|---|
-| 1. Ir a la carpeta | Barra de dirección → `cmd` | `cd ` + arrastrar carpeta + Enter |
-| 2. Activar entorno | `venv\Scripts\activate` | `source venv/bin/activate` |
-
-**Después (igual en los dos sistemas):**
-
-| Para... | Comando |
-|---|---|
-| Hacer un backtest con informe | `python backtest.py --html informe.html` |
-| Abrir el informe | `start informe.html` (Win) / `open informe.html` (Mac) |
-| Buscar la mejor configuración | `python optimize.py` |
-| Arrancar el bot | `python bot.py` |
-| Ver cómo va el bot | `python bot.py --status` |
-| Parar el bot | `Ctrl + C` |
-| Comprobar que todo funciona | `python -m pytest tests -q` |
-| Editar la configuración privada | `notepad .env` (Win) / `open -e .env` (Mac) |
-| Editar la estrategia | `notepad config.py` (Win) / `open -e config.py` (Mac) |
-
-### Actualizar el bot a una versión nueva
-
-1. Para el bot (`Ctrl + C`).
-2. Descarga el ZIP nuevo de GitHub (Parte 3) y descomprímelo.
-3. Copia **desde la carpeta vieja a la nueva** estos archivos, para no perder tus datos: `.env`, `state.json`, `trades_log.csv` y, si lo modificaste, `config.py`.
-4. En la carpeta nueva, repite los pasos 5.1, 5.2 y 5.3.
+5. El panel se abre en el navegador. Para volver a abrirlo otro día: Terminal → `cd` a la carpeta → `source venv/bin/activate` → `python panel.py`.
+6. El backtest se lanza con `python backtest.py --html informe.html` y se abre con `open informe.html`. El archivo `.env` se edita con `open -e .env`.
 
 ---
 
