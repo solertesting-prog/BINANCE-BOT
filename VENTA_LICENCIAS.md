@@ -67,6 +67,20 @@ Si entregas el código Python, cualquiera con conocimientos puede borrar la comp
 
 > ⚠️ El script de compilación está preparado pero **todavía no se ha probado en tu PC**. Si falla, copia el mensaje de error y pásamelo.
 
+### Si la compilación falla con "Una directiva de Control de aplicaciones bloqueó este archivo"
+
+Windows 11 tiene el **Control inteligente de aplicaciones** (Smart App Control), que bloquea el compilador gratuito MinGW porque no está firmado. La solución es usar el compilador de Microsoft, que sí está firmado:
+
+1. Descarga **Build Tools para Visual Studio** desde https://visualstudio.microsoft.com/es/downloads/ (al final de la página, en "Herramientas para Visual Studio").
+2. En el instalador, marca **"Desarrollo para el escritorio con C++"** y pulsa **Instalar** (ocupa varios GB y tarda un rato).
+3. Vuelve a ejecutar `compilar.bat`: detecta solo el compilador de Microsoft y lo usa.
+
+> No es recomendable desactivar el Control inteligente de aplicaciones: en Windows 11 no se puede volver a activar sin reinstalar Windows.
+
+### Firma digital del .exe (importante para vender)
+
+Ese mismo Control inteligente de aplicaciones puede **bloquear tu `ValorizeBot.exe` en los PCs de tus clientes**, porque es un programa nuevo y sin firma digital. Además, Windows mostrará avisos de "editor desconocido". Para distribuirlo de forma profesional necesitarás un **certificado de firma de código** (code signing) de una autoridad reconocida, que tiene un coste anual, o un servicio de firma en la nube como Azure Trusted Signing. Es un paso a resolver antes de vender.
+
 Cada vez que publiques una versión nueva, sube el número de versión en `compilar.bat` (`1.0.0.0` y el nombre del ZIP), compila y sustituye el archivo en Lemon Squeezy.
 
 ## Paso 4 · Proteger el código fuente

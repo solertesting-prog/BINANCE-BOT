@@ -30,8 +30,22 @@ if errorlevel 1 (
 :compilar
 echo [1/3] Instalando el compilador (Nuitka)...
 python -m pip install -q nuitka ordered-set zstandard
-echo [2/3] Compilando (paciencia)...
-python -m nuitka --standalone --assume-yes-for-downloads --windows-console-mode=disable ^
+echo [2/3] Buscando el compilador de C...
+set "CCOPT="
+set "VSWHERE=%ProgramFiles(x86)%\Microsoft Visual Studio\Installer\vswhere.exe"
+if exist "%VSWHERE%" (
+  for /f "usebackq delims=" %%i in (`"%VSWHERE%" -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath`) do set "CCOPT=--msvc=latest"
+)
+if defined CCOPT (
+  echo      Usando el compilador de Microsoft - Visual Studio Build Tools.
+) else (
+  echo      No se encuentra el compilador de Microsoft - Visual Studio Build Tools.
+  echo      Se intentara con MinGW, pero si Windows tiene activado el Control inteligente
+  echo      de aplicaciones lo bloqueara. Solucion recomendada: instala Build Tools
+  echo      siguiendo VENTA_LICENCIAS.md, apartado Si la compilacion falla.
+)
+echo      Compilando (paciencia)...
+python -m nuitka --standalone --assume-yes-for-downloads --windows-console-mode=disable %CCOPT% ^
   --output-dir=build --output-filename=ValorizeBot.exe ^
   --windows-icon-from-ico=assets\bot.ico ^
   --company-name="Valorize" --product-name="Valorize Bot" --file-version=1.0.0.0 --product-version=1.0.0.0 ^
