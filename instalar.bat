@@ -3,9 +3,9 @@ chcp 65001 >nul
 cd /d "%~dp0"
 set "DIR=%~dp0"
 set "DIR=%DIR:~0,-1%"
-title Instalacion - Trading Bot
+title Instalacion - Valorize Bot
 echo ================================================
-echo   Instalacion del Trading Bot
+echo   Instalacion de Valorize Bot
 echo ================================================
 echo.
 python --version >nul 2>&1
@@ -38,8 +38,9 @@ if errorlevel 1 (
   echo [AVISO] Algun test ha fallado. Copia el mensaje de arriba y pregunta a Claude.
   pause
 )
-echo [5/5] Creando el icono "Trading Bot" en el escritorio...
-powershell -NoProfile -ExecutionPolicy Bypass -Command "$w=New-Object -ComObject WScript.Shell; $s=$w.CreateShortcut([Environment]::GetFolderPath('Desktop')+'\Trading Bot.lnk'); $s.TargetPath='%DIR%\venv\Scripts\pythonw.exe'; $s.Arguments='panel.py'; $s.WorkingDirectory='%DIR%'; $s.IconLocation='%DIR%\assets\bot.ico'; $s.Description='Panel del bot de trading'; $s.Save()"
+echo [5/5] Creando el icono "Valorize Bot" en el escritorio...
+powershell -NoProfile -Command "Remove-Item -ErrorAction SilentlyContinue ([Environment]::GetFolderPath('Desktop')+'\Trading Bot.lnk'), ([Environment]::GetFolderPath('Startup')+'\Trading Bot.lnk')"
+powershell -NoProfile -ExecutionPolicy Bypass -Command "$w=New-Object -ComObject WScript.Shell; $s=$w.CreateShortcut([Environment]::GetFolderPath('Desktop')+'\Valorize Bot.lnk'); $s.TargetPath='%DIR%\venv\Scripts\pythonw.exe'; $s.Arguments='panel.py'; $s.WorkingDirectory='%DIR%'; $s.IconLocation='%DIR%\assets\bot.ico'; $s.Description='Valorize Bot'; $s.Save()"
 echo.
 echo ================================================
 echo   Instalacion terminada.
@@ -52,6 +53,6 @@ call "%DIR%\autoarranque-activar.bat" silencioso
 echo.
 echo Abriendo el panel en tu navegador...
 start "" "%DIR%\venv\Scripts\pythonw.exe" panel.py
-echo A partir de ahora, usa el icono "Trading Bot" del escritorio.
+echo A partir de ahora, usa el icono "Valorize Bot" del escritorio.
 echo.
 pause

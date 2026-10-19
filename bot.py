@@ -1,4 +1,4 @@
-"""Motor del bot de trading (mercado spot de cualquier exchange compatible; solo compras en largo).
+"""Valorize Bot - motor de trading (mercado spot de cualquier exchange compatible; solo compras en largo).
 
 Normalmente se usa desde el PANEL (doble clic en el icono del escritorio o en panel.bat).
 También funciona en la consola:
@@ -491,7 +491,7 @@ class Engine:
             self.state["running"] = True
             save_state(self.state)
             self._stop_event = threading.Event()
-        notify(f"🤖 Bot iniciado | {getattr(self.ex, 'name', self.cfg.exchange)} | {', '.join(self.cfg.symbols)} {self.cfg.timeframe} | {describe(self.cfg)} | "
+        notify(f"🤖 Valorize Bot iniciado | {getattr(self.ex, 'name', self.cfg.exchange)} | {', '.join(self.cfg.symbols)} {self.cfg.timeframe} | {describe(self.cfg)} | "
                f"modo {self.cfg.mode}{' (testnet)' if self.cfg.testnet else ''}", self.cfg)
         if background:
             self.thread = threading.Thread(target=self._loop, name="bot", daemon=True)
@@ -517,7 +517,7 @@ class Engine:
             self.state["running"] = False
             save_state(self.state)
         if notify_user:
-            notify("■ Bot parado.", self.cfg)
+            notify("■ Valorize Bot parado.", self.cfg)
 
     def close_position(self, sym):
         with self.lock:
@@ -612,7 +612,7 @@ def show_status(cfg=CONFIG):
 
 
 def main():
-    p = argparse.ArgumentParser(description="Bot de trading de cruce de medias")
+    p = argparse.ArgumentParser(description="Valorize Bot (consola)")
     p.add_argument("--status", action="store_true", help="muestra el estado y sale")
     if p.parse_args().status:
         return show_status()

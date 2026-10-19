@@ -1,4 +1,4 @@
-"""Panel de control del bot (se abre en el navegador).
+"""Valorize Bot - panel de control (se abre en el navegador).
 
     python panel.py               # abre el panel en http://127.0.0.1:8765
     python panel.py --no-browser  # sin abrir el navegador (para el arranque automático)
@@ -171,7 +171,7 @@ class PanelApp:
 
 
 class Handler(BaseHTTPRequestHandler):
-    server_version = "BotPanel"
+    server_version = "ValorizeBot"
 
     def log_message(self, *args):
         pass
@@ -292,7 +292,7 @@ def price_watcher(app, stop_event):
 
 
 def main():
-    p = argparse.ArgumentParser(description="Panel de control del bot")
+    p = argparse.ArgumentParser(description="Valorize Bot - panel")
     p.add_argument("--no-browser", action="store_true", help="no abrir el navegador")
     p.add_argument("--port", type=int, default=CONFIG.panel_port)
     a = p.parse_args()

@@ -1,4 +1,4 @@
-# 📘 Manual del Trading Bot, paso a paso
+# 📘 Manual de Valorize Bot, paso a paso
 
 Funciona con **Binance, Kraken, Coinbase, OKX, Bybit, KuCoin, Bitget, Bitvavo, Bitfinex, Gate.io, Crypto.com, MEXC, HTX, Bitstamp** y muchos más (la lista completa está en el asistente).
 
@@ -76,11 +76,11 @@ Al abrir `Documentos\binance-bot` debes ver archivos como `instalar.bat`, `panel
    - prepara Python e instala las piezas del bot,
    - crea tu archivo de configuración privada (`.env`) en **modo simulado**,
    - comprueba que todo funciona (debe poner **`passed`**),
-   - crea el icono **"Trading Bot"** en tu escritorio.
+   - crea el icono **"Valorize Bot"** en tu escritorio.
 5. Al final pregunta **"¿Quieres que el panel se abra solo al encender el PC? [S,N]"**. Pulsa **S** (recomendado) o **N**.
 6. Se abre el **panel** en tu navegador y, la primera vez, el **asistente de configuración** (Parte 5). 🎉
 
-A partir de ahora, para abrir el bot **solo tienes que hacer doble clic en el icono "Trading Bot" del escritorio**.
+A partir de ahora, para abrir el bot **solo tienes que hacer doble clic en el icono "Valorize Bot" del escritorio**.
 
 ---
 
@@ -334,15 +334,15 @@ Si no quieres tener tu PC encendido siempre, puedes alquilar un servidor Linux p
 apt update && apt install -y python3-venv git
 adduser bot
 su - bot
-git clone https://github.com/solertesting-prog/BINANCE-BOT.git trading-bot
-cd trading-bot && python3 -m venv venv && venv/bin/pip install -r requirements.txt
+git clone https://github.com/solertesting-prog/BINANCE-BOT.git valorize-bot
+cd valorize-bot && python3 -m venv venv && venv/bin/pip install -r requirements.txt
 cp .env.example .env && nano .env
 exit
-sed 's/usuario/bot/g' /home/bot/trading-bot/deploy/trading-bot.service > /etc/systemd/system/trading-bot.service
-systemctl daemon-reload && systemctl enable --now trading-bot
+sed 's/usuario/bot/g' /home/bot/valorize-bot/deploy/valorize-bot.service > /etc/systemd/system/valorize-bot.service
+systemctl daemon-reload && systemctl enable --now valorize-bot
 ```
 
-Comprueba con `systemctl status trading-bot` (debe poner `active (running)`) y mira el registro con `journalctl -u trading-bot -f`. En el servidor el bot funciona sin panel; el estado se consulta con `venv/bin/python bot.py --status`.
+Comprueba con `systemctl status valorize-bot` (debe poner `active (running)`) y mira el registro con `journalctl -u valorize-bot -f`. En el servidor el bot funciona sin panel; el estado se consulta con `venv/bin/python bot.py --status`.
 
 ---
 
@@ -393,7 +393,7 @@ Copia el mensaje (del panel, de `bot.log` o de `panel_error.txt`) y pregúntale 
 
 | Archivo | Para qué sirve |
 |---|---|
-| 🖱️ **Icono "Trading Bot"** (escritorio) | Abre el panel. Es lo único que necesitas usar a diario |
+| 🖱️ **Icono "Valorize Bot"** (escritorio) | Abre el panel. Es lo único que necesitas usar a diario |
 | `instalar.bat` | Instala o actualiza todo (repetirlo no borra tus datos) |
 | `abrir-panel.bat` | Igual que el icono del escritorio |
 | `backtest.bat` | Prueba la estrategia con el último año y abre el informe |

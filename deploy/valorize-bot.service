@@ -1,0 +1,27 @@
+# Servicio systemd para tener el bot funcionando 24/7 en un servidor Linux (VPS, Raspberry Pi...).
+#
+# Instalación (cambia "usuario" y la ruta por los tuyos):
+#   sudo cp deploy/valorize-bot.service /etc/systemd/system/
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable --now valorize-bot
+#
+# Uso:
+#   systemctl status valorize-bot        # ¿está funcionando?
+#   journalctl -u valorize-bot -f        # ver el log en directo
+#   sudo systemctl restart valorize-bot  # tras cambiar config.py o .env
+#   sudo systemctl stop valorize-bot     # pararlo
+
+[Unit]
+Description=Valorize Bot (bot de trading)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+User=usuario
+WorkingDirectory=/home/usuario/valorize-bot
+ExecStart=/home/usuario/valorize-bot/venv/bin/python bot.py
+Restart=on-failure
+RestartSec=30
+
+[Install]
+WantedBy=multi-user.target

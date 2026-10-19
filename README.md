@@ -1,6 +1,6 @@
-# Trading Bot multi-exchange
+# Valorize Bot
 
-Bot de trading automático para el mercado spot (solo compras en largo, sin apalancamiento) de **Binance, Kraken, Coinbase, OKX, Bybit, KuCoin, Bitget, Bitvavo, Bitfinex, Gate.io y muchos más** (vía [ccxt](https://github.com/ccxt/ccxt)). Incluye **panel de control en el navegador** con asistente de configuración, gestión del riesgo profesional y protección con stops puestos en el propio exchange.
+Valorize Bot es un bot de trading automático para el mercado spot (solo compras en largo, sin apalancamiento) de **Binance, Kraken, Coinbase, OKX, Bybit, KuCoin, Bitget, Bitvavo, Bitfinex, Gate.io y muchos más** (vía [ccxt](https://github.com/ccxt/ccxt)). Incluye **panel de control en el navegador** con asistente de configuración, gestión del riesgo profesional y protección con stops puestos en el propio exchange.
 
 > 📘 **¿Primera vez?** Sigue el [**Manual paso a paso**](MANUAL_INSTALACION.md). En Windows se instala con un doble clic y se usa desde un icono en el escritorio.
 
@@ -41,7 +41,7 @@ Bot de trading automático para el mercado spot (solo compras en largo, sin apal
 | Windows (doble clic) | Equivalente en consola |
 |---|---|
 | `instalar.bat` | `python -m venv venv` + `pip install -r requirements.txt` |
-| Icono **Trading Bot** / `abrir-panel.bat` | `python panel.py` |
+| Icono **Valorize Bot** / `abrir-panel.bat` | `python panel.py` |
 | `backtest.bat` | `python backtest.py --html informe.html` |
 | | `python optimize.py --days 1095` |
 | `arrancar-bot.bat` | `python bot.py` (sin panel) |
@@ -61,7 +61,7 @@ Exchange, modo, claves y monedas se configuran desde el panel (**⚙ Configuraci
 | `backtest.py`, `report.py`, `optimize.py` | Backtest, informe HTML y optimización walk-forward |
 | `exchange.py` | Conexión con el exchange (ccxt), capacidades de cada uno y descarga de velas |
 | `tests/` | 26 tests sin conexión: estrategia, backtest, motor y asistente (con exchanges simulados) y panel |
-| `deploy/trading-bot.service` | Servicio systemd para un servidor Linux |
+| `deploy/valorize-bot.service` | Servicio systemd para un servidor Linux |
 
 ## Aviso
 
