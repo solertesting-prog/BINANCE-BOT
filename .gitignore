@@ -1,5 +1,6 @@
 .env
 state.json
+settings.json
 state.tmp
 bot.log
 trades_log.csv

@@ -26,7 +26,9 @@ from urllib.parse import parse_qs, urlparse
 import numpy as np
 
 import bot
+import config as C
 import exchange as xch
+import setup_api
 from config import CONFIG
 from strategy import add_signals
 
@@ -65,7 +67,42 @@ class PanelApp:
         self.data_ex = data_ex or engine.ex
         self.cache = {}
         self.lock = threading.Lock()
+        self.setup_lock = threading.Lock()
         self.server = None
+
+    def apply_setup(self, body: dict, engine_factory=None, data_ex_factory=None) -> dict:
+        """Guarda la configuración del asistente y reinicia el motor con ella."""
+        with self.setup_lock:
+            old = self.engine
+            venue_changed = setup_api.validate_and_save(old, body)
+            was_running = old.is_running()
+            if was_running:
+                old.stop(notify_user=False)
+                old.thread.join(timeout=45)
+            s = old.state
+            new_cfg = C.load_config()
+            if venue_changed:                      # otro exchange o modo: nuevo punto de partida
+                s.update(start_equity=None, last_candle={}, equity_history=[], halted=False)
+            if (new_cfg.mode == "paper" and not s["positions"]
+                    and new_cfg.paper_balance != old.cfg.paper_balance):
+                s.update(paper_usdt=new_cfg.paper_balance, start_equity=None, equity_history=[])
+            bot.save_state(s)
+
+            new = (engine_factory or bot.Engine)(new_cfg)
+            self.engine = new
+            self.data_ex = (data_ex_factory or (lambda c: xch.make_exchange(c)))(new_cfg)
+            self.invalidate()
+            try:
+                new.connect()
+                new.refresh_prices()
+            except (Exception, SystemExit) as e:
+                new.last_error = f"No se pudo conectar con el exchange: {e}"
+            log.info(f"Configuración guardada: {new_cfg.exchange} | {', '.join(new_cfg.symbols)} "
+                     f"{new_cfg.timeframe} | modo {new_cfg.mode}{' (testnet)' if new_cfg.testnet else ''}")
+            if was_running and new.broker is not None and not venue_changed:
+                new.start()
+            return {"ok": True, "restarted": bool(was_running and new.is_running()),
+                    "venue_changed": venue_changed}
 
     def candles(self, sym: str) -> dict:
         cfg = self.engine.cfg
@@ -174,6 +211,13 @@ class Handler(BaseHTTPRequestHandler):
                 self._json(bot.read_trades()[-200:][::-1])
             elif u.path == "/api/log":
                 self._json({"lines": tail(bot.LOG_FILE, 200)})
+            elif u.path == "/api/setup":
+                self._json({**setup_api.current(app.engine.cfg), **setup_api.catalog()})
+            elif u.path == "/api/setup/exchange":
+                ex_id, testnet = q["id"][0], q.get("testnet", ["0"])[0] == "1"
+                self._json({**xch.exchange_info(ex_id), "saved": setup_api.saved_for(ex_id, testnet)})
+            elif u.path == "/api/setup/markets":
+                self._json(setup_api.markets(q["id"][0], q.get("testnet", ["0"])[0] == "1"))
             else:
                 self._json({"ok": False, "error": "no encontrado"}, 404)
         except Exception as e:
@@ -190,6 +234,13 @@ class Handler(BaseHTTPRequestHandler):
         u = urlparse(self.path)
         q = parse_qs(u.query)
         try:
+            length = min(int(self.headers.get("Content-Length") or 0), 65536)
+            body = json.loads(self.rfile.read(length) or b"{}") if length else {}
+            if u.path == "/api/setup/test":
+                return self._json(setup_api.test_connection(body["exchange"], bool(body.get("testnet")),
+                                                            body.get("credentials") or {}))
+            if u.path == "/api/setup/save":
+                return self._json(app.apply_setup(body))
             if u.path == "/api/start":
                 e.start()
             elif u.path == "/api/stop":
@@ -228,9 +279,10 @@ def port_in_use(port: int) -> bool:
         return s.connect_ex(("127.0.0.1", port)) == 0
 
 
-def price_watcher(engine, stop_event):
+def price_watcher(app, stop_event):
     """Con el bot parado, mantiene los precios del panel actualizados."""
     while not stop_event.wait(20):
+        engine = app.engine
         if engine.is_running():
             continue
         try:
@@ -257,7 +309,7 @@ def main():
         engine.connect()
         engine.refresh_prices()
     except (Exception, SystemExit) as e:
-        engine.last_error = f"No se pudo conectar con Binance: {e}"
+        engine.last_error = f"No se pudo conectar con el exchange: {e}"
         log.error(engine.last_error)
 
     server = make_server(engine, a.port, data_ex=xch.make_exchange(CONFIG, private=False))
@@ -271,7 +323,7 @@ def main():
             engine.last_error = str(e)
 
     stop_event = threading.Event()
-    threading.Thread(target=price_watcher, args=(engine, stop_event), daemon=True).start()
+    threading.Thread(target=price_watcher, args=(server.app, stop_event), daemon=True).start()
     if not a.no_browser:
         threading.Timer(1.0, webbrowser.open, [url]).start()
     try:
@@ -282,7 +334,7 @@ def main():
         stop_event.set()
         # No se llama a engine.stop(): así, si se apaga el PC con el bot en marcha,
         # al volver a abrir el panel el bot continúa donde estaba.
-        bot.save_state(engine.state)
+        bot.save_state(server.app.engine.state)
 
 
 if __name__ == "__main__":

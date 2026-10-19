@@ -1,4 +1,4 @@
-"""Motor del bot de trading (Binance spot, solo compras en largo).
+"""Motor del bot de trading (mercado spot de cualquier exchange compatible; solo compras en largo).
 
 Normalmente se usa desde el PANEL (doble clic en el icono del escritorio o en panel.bat).
 También funciona en la consola:
@@ -8,12 +8,13 @@ También funciona en la consola:
 
 Qué hace en cada ciclo (cada `poll_seconds`):
   1. Lee los precios y comprueba el interruptor de seguridad (drawdown máximo).
-  2. Para cada moneda con compra abierta: comprueba si saltó el stop en Binance, el stop
-     o el take profit; si no, sube el stop dinámico (y lo actualiza en Binance).
+  2. Para cada moneda con compra abierta: comprueba si saltó el stop en el exchange, el stop
+     o el take profit; si no, sube el stop dinámico (y lo actualiza en el exchange).
   3. Al cerrar cada vela, calcula la señal (misma lógica que el backtest) y compra o vende.
 
 Robustez:
-  - En modo real deja una orden STOP_LOSS_LIMIT en Binance: protege aunque el PC se apague.
+  - En modo real deja una orden stop loss en el exchange (si lo permite): protege aunque el PC
+    se apague.
     El bot vigila además el precio por su cuenta (doble protección).
   - Al arrancar comprueba que su estado cuadra con la cuenta (reconciliación).
   - Reintenta las consultas si falla la red; las órdenes NUNCA se reintentan a ciegas.
@@ -183,7 +184,7 @@ class PaperBroker:
 
 
 class LiveBroker(PaperBroker):
-    """Real (o testnet): órdenes de verdad en Binance."""
+    """Real (o testnet): órdenes de verdad en el exchange."""
     live = True
 
     def _balance(self):
@@ -223,24 +224,49 @@ class LiveBroker(PaperBroker):
     def sell(self, sym, pos, price):
         self.cancel_stop(sym, pos)                     # libera las monedas bloqueadas por el stop
         qty = min(pos["qty"], self._free(sym.split("/")[0]))
+        if qty <= pos["qty"] * 0.01:                   # ya no están: las vendió el stop del exchange
+            log.warning(f"{sym}: no quedan monedas para vender (¿ya se ejecutó el stop?)")
+            return price
         amount = float(self.ex.amount_to_precision(sym, qty))
         order = self.ex.create_market_sell_order(sym, amount)
         return float(order.get("average") or price)
 
+    def _create_stop(self, sym, amount, stop_p, limit_p):
+        ex = self.ex
+        if ex.id.startswith("binance"):
+            return ex.create_order(sym, "STOP_LOSS_LIMIT", "sell", amount, limit_p, {"stopPrice": stop_p})
+        if ex.has.get("createStopLossOrder"):
+            return ex.create_stop_loss_order(sym, "limit", "sell", amount, limit_p, stop_p)
+        if ex.has.get("createTriggerOrder"):
+            return ex.create_trigger_order(sym, "limit", "sell", amount, limit_p, stop_p)
+        return ex.create_stop_order(sym, "limit", "sell", amount, limit_p, stop_p)
+
     def place_stop(self, sym, qty, stop):
-        if not self.cfg.exchange_stops or not stop:
+        if not self.cfg.exchange_stops or not stop or not xch.supports_exchange_stops(self.ex):
             return None
         try:
             amount = float(self.ex.amount_to_precision(sym, min(qty, self._free(sym.split("/")[0]))))
             stop_p = float(self.ex.price_to_precision(sym, stop))
             limit_p = float(self.ex.price_to_precision(sym, stop * (1 - self.cfg.stop_limit_gap)))
-            o = self.ex.create_order(sym, "STOP_LOSS_LIMIT", "sell", amount, limit_p, {"stopPrice": stop_p})
-            log.info(f"Stop colocado en Binance para {sym}: {stop_p}")
+            o = self._create_stop(sym, amount, stop_p, limit_p)
+            log.info(f"Stop colocado en {self.ex.name} para {sym}: {stop_p}")
             return {"id": o["id"], "stop": stop_p}
         except Exception as e:
-            notify(f"⚠️ No se pudo colocar el stop en Binance para {sym} ({e}). "
+            notify(f"⚠️ No se pudo colocar el stop en {self.ex.name} para {sym} ({e}). "
                    f"El bot sigue vigilando el precio por su cuenta.", self.cfg)
             return None
+
+    def _order_call(self, method, so, sym):
+        """cancel/fetch de órdenes stop: algunos exchanges las guardan aparte (trigger/stop)."""
+        last = None
+        for params in ({}, {"trigger": True}, {"stop": True}):
+            try:
+                return method(so["id"], sym, params) if params else method(so["id"], sym)
+            except Exception as e:
+                last = e
+                if self.ex.id.startswith("binance"):
+                    break
+        raise last
 
     def update_stop(self, sym, pos, stop):
         cur = pos.get("stop_order")
@@ -253,22 +279,26 @@ class LiveBroker(PaperBroker):
         so = pos.get("stop_order")
         if so:
             try:
-                self.ex.cancel_order(so["id"], sym)
+                self._order_call(self.ex.cancel_order, so, sym)
             except Exception as e:                     # puede que ya se haya ejecutado
                 log.warning(f"No se pudo cancelar el stop {so['id']} de {sym}: {e}")
         pos["stop_order"] = None
 
     def stop_fill(self, sym, pos):
-        """Precio de venta si el stop de Binance se ejecutó; None si sigue pendiente."""
+        """Precio de venta si el stop del exchange se ejecutó; None si sigue pendiente."""
         so = pos.get("stop_order")
         if not so:
             return None
-        o = retry(self.ex.fetch_order, so["id"], sym)
+        try:
+            o = self._order_call(lambda *a: retry(self.ex.fetch_order, *a), so, sym)
+        except Exception as e:
+            log.warning(f"No se pudo consultar el stop de {sym}: {e}")
+            return None
         status = o.get("status")
         if status == "closed":
             return float(o.get("average") or o.get("price") or so["stop"])
         if status in ("canceled", "expired", "rejected"):
-            log.warning(f"El stop de {sym} en Binance está '{status}'; se volverá a colocar.")
+            log.warning(f"El stop de {sym} en el exchange está '{status}'; se volverá a colocar.")
             pos["stop_order"] = None
         return None
 
@@ -292,19 +322,25 @@ class Engine:
         if cfg.mode not in ("paper", "live"):
             raise SystemExit("MODE debe ser 'paper' o 'live' en el archivo .env")
         if len({s.split("/")[1] for s in cfg.symbols}) > 1:
-            raise SystemExit("Todas las monedas deben cotizar contra lo mismo (p. ej. todas /USDT)")
+            raise SystemExit("Todas las monedas deben cotizar contra lo mismo (p. ej. todas /USDT o todas /EUR)")
         if self.ex is None:
             self.ex = xch.make_exchange(cfg, private=(cfg.mode == "live"))
         if hasattr(self.ex, "load_markets"):
             retry(self.ex.load_markets)
         missing = [s for s in cfg.symbols if s not in getattr(self.ex, "markets", {s: 1 for s in cfg.symbols})]
         if missing:
-            raise SystemExit(f"Binance no tiene estos pares: {', '.join(missing)}")
+            raise SystemExit(f"{getattr(self.ex, 'name', cfg.exchange)} no tiene estos pares: {', '.join(missing)}")
         self.broker = (LiveBroker if cfg.mode == "live" else PaperBroker)(self.ex, self.state, cfg)
 
     def min_cost(self, sym) -> float:
+        """Importe mínimo de una orden en ese mercado (según el exchange)."""
         m = getattr(self.ex, "markets", {}).get(sym) or {}
-        return ((m.get("limits") or {}).get("cost") or {}).get("min") or 10.0
+        limits = m.get("limits") or {}
+        cost = (limits.get("cost") or {}).get("min")
+        if cost:
+            return float(cost)
+        amount = (limits.get("amount") or {}).get("min")
+        return float(amount) * self.prices.get(sym, 0) if amount else 0.0
 
     # --- operaciones ---
     def _close(self, sym, price, reason, already_sold=False):
@@ -317,7 +353,7 @@ class Engine:
                       "cantidad": pos["qty"], "motivo": reason, "pnl_pct": round(pnl_pct, 5),
                       "pnl_usdt": round(pnl_usdt, 2), "modo": self.cfg.mode})
         notify(f"🔴 VENTA {sym} {pos['qty']:.6f} a {fill:.2f} | {reason} | {pnl_pct:+.2%} "
-               f"({pnl_usdt:+.2f} USDT) [{self.cfg.mode}]", self.cfg)
+               f"({pnl_usdt:+.2f} {self.cfg.quote}) [{self.cfg.mode}]", self.cfg)
 
     def _open(self, sym, price, atr_value):
         cfg, b, s = self.cfg, self.broker, self.state
@@ -335,7 +371,7 @@ class Engine:
         s["positions"][sym] = pos
         stop, _, _ = exit_levels(fill, fill, atr_value, cfg)
         pos["stop_order"] = b.place_stop(sym, qty, stop)
-        notify(f"🟢 COMPRA {sym} {qty:.6f} a {fill:.2f} ({spend:.2f} USDT) | stop {stop:.2f} "
+        notify(f"🟢 COMPRA {sym} {qty:.6f} a {fill:.2f} ({spend:.2f} {cfg.quote}) | stop {stop:.2f} "
                f"[{cfg.mode}]" if stop else f"🟢 COMPRA {sym} {qty:.6f} a {fill:.2f} [{cfg.mode}]", cfg)
 
     def _manage(self, sym, price):
@@ -346,7 +382,7 @@ class Engine:
         if pos:
             fill = b.stop_fill(sym, pos)
             if fill:
-                self._close(sym, fill, "stop loss (Binance)", already_sold=True)
+                self._close(sym, fill, "stop loss (exchange)", already_sold=True)
                 pos, exited = None, True
             else:
                 stop, tp, kind = exit_levels(pos["entry"], pos["peak"], pos["atr"], cfg)
@@ -425,7 +461,7 @@ class Engine:
         for sym, pos in list(s["positions"].items()):
             fill = b.stop_fill(sym, pos)
             if fill:
-                self._close(sym, fill, "stop loss (Binance, con el bot parado)", already_sold=True)
+                self._close(sym, fill, "stop loss (exchange, con el bot parado)", already_sold=True)
             elif b.base_total(sym) < pos["qty"] * 0.5:
                 price = float(retry(self.ex.fetch_ticker, sym)["last"])
                 s["positions"].pop(sym)
@@ -455,7 +491,7 @@ class Engine:
             self.state["running"] = True
             save_state(self.state)
             self._stop_event = threading.Event()
-        notify(f"🤖 Bot iniciado | {', '.join(self.cfg.symbols)} {self.cfg.timeframe} | {describe(self.cfg)} | "
+        notify(f"🤖 Bot iniciado | {getattr(self.ex, 'name', self.cfg.exchange)} | {', '.join(self.cfg.symbols)} {self.cfg.timeframe} | {describe(self.cfg)} | "
                f"modo {self.cfg.mode}{' (testnet)' if self.cfg.testnet else ''}", self.cfg)
         if background:
             self.thread = threading.Thread(target=self._loop, name="bot", daemon=True)
@@ -532,6 +568,9 @@ class Engine:
         start = s["start_equity"] or (cfg.paper_balance if cfg.mode == "paper" else None)
         return {
             "mode": cfg.mode, "testnet": cfg.testnet, "running": self.is_running(), "halted": s["halted"],
+            "exchange": cfg.exchange, "exchange_name": getattr(self.ex, "name", None) or cfg.exchange,
+            "quote": cfg.quote,
+            "exchange_stops_supported": bool(self.ex is not None and xch.supports_exchange_stops(self.ex)),
             "symbols": list(cfg.symbols), "timeframe": cfg.timeframe, "strategy": describe(cfg),
             "equity": equity, "start_equity": start,
             "pnl_total_pct": (equity / start - 1) if equity and start else None,
@@ -548,7 +587,7 @@ class Engine:
 # ---------- consola ----------
 def show_status(cfg=CONFIG):
     s = load_state(cfg)
-    print(f"Configuración: {', '.join(cfg.symbols)} {cfg.timeframe} | {describe(cfg)} | modo {cfg.mode}")
+    print(f"Configuración: {cfg.exchange} | {', '.join(cfg.symbols)} {cfg.timeframe} | {describe(cfg)} | modo {cfg.mode}")
     if s["halted"]:
         print("⛔ DETENIDO por el interruptor de seguridad (reactívalo desde el panel)")
     if not s["positions"]:
@@ -558,14 +597,14 @@ def show_status(cfg=CONFIG):
         print(f"Posición {sym}: {p['qty']:.6f} desde {p['entry']:.2f} (máx. {p['peak']:.2f}) "
               f"abierta {p.get('entry_time')} UTC" + (f" | {kind}: {stop:.2f}" if stop else ""))
     if cfg.mode == "paper":
-        print(f"Saldo simulado disponible: {s['paper_usdt']:.2f} USDT")
+        print(f"Saldo simulado disponible: {s['paper_usdt']:.2f} {cfg.quote}")
     trades = read_trades()
     if trades:
         wins = sum(1 for t in trades if float(t["pnl_pct"]) > 0)
         total = sum(float(t["pnl_usdt"]) for t in trades)
-        print(f"Operaciones cerradas: {len(trades)} | acierto {wins / len(trades):.0%} | resultado {total:+.2f} USDT")
+        print(f"Operaciones cerradas: {len(trades)} | acierto {wins / len(trades):.0%} | resultado {total:+.2f} {cfg.quote}")
         print("\nÚltimas operaciones:")
-        print(f"  {'salida (UTC)':<17} {'par':<10} {'entrada':>10} {'salida':>10}  {'motivo':<20} {'resultado':>9} {'USDT':>8}")
+        print(f"  {'salida (UTC)':<17} {'par':<10} {'entrada':>10} {'salida':>10}  {'motivo':<20} {'resultado':>9} {cfg.quote:>8}")
         for t in trades[-5:]:
             print(f"  {t['salida'][:16]:<17} {t['par']:<10} {float(t['precio_entrada']):>10.2f} "
                   f"{float(t['precio_salida']):>10.2f}  {t['motivo'][:20]:<20} {float(t['pnl_pct']):>+9.2%} "
@@ -573,7 +612,7 @@ def show_status(cfg=CONFIG):
 
 
 def main():
-    p = argparse.ArgumentParser(description="Bot de cruce de medias para Binance")
+    p = argparse.ArgumentParser(description="Bot de trading de cruce de medias")
     p.add_argument("--status", action="store_true", help="muestra el estado y sale")
     if p.parse_args().status:
         return show_status()

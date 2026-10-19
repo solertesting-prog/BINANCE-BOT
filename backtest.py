@@ -1,4 +1,4 @@
-"""Backtest de la estrategia con datos históricos de Binance.
+"""Backtest de la estrategia con datos históricos del exchange configurado.
 
 Uso:
     python backtest.py                                   # parámetros de config.py, último año
@@ -33,12 +33,13 @@ def load_data(symbol: str, timeframe: str, days: int, csv: str | None = None) ->
     if csv:
         return read_csv(csv)
     DATA_DIR.mkdir(exist_ok=True)
-    cache = DATA_DIR / f"{symbol.replace('/', '')}_{timeframe}_{days}d_{date.today()}.csv"
+    cache = DATA_DIR / f"{CONFIG.exchange}_{symbol.replace('/', '')}_{timeframe}_{days}d_{date.today()}.csv"
     if cache.exists():
         return read_csv(cache)
     from exchange import fetch_history, make_exchange
-    print(f"Descargando {days} días de {symbol} {timeframe} desde Binance...")
-    df = fetch_history(make_exchange(CONFIG), symbol, timeframe, days)
+    print(f"Descargando {days} días de {symbol} {timeframe} desde {CONFIG.exchange}...")
+    # siempre datos reales (la testnet tiene precios poco fiables)
+    df = fetch_history(make_exchange(replace(CONFIG, testnet=False)), symbol, timeframe, days)
     df.to_csv(cache, index=False)
     return df
 

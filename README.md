@@ -1,6 +1,6 @@
-# Trading Bot para Binance
+# Trading Bot multi-exchange
 
-Bot de trading automático para Binance spot (solo compras en largo, sin apalancamiento), con **panel de control en el navegador**, gestión del riesgo profesional y protección con stops puestos en el propio exchange.
+Bot de trading automático para el mercado spot (solo compras en largo, sin apalancamiento) de **Binance, Kraken, Coinbase, OKX, Bybit, KuCoin, Bitget, Bitvavo, Bitfinex, Gate.io y muchos más** (vía [ccxt](https://github.com/ccxt/ccxt)). Incluye **panel de control en el navegador** con asistente de configuración, gestión del riesgo profesional y protección con stops puestos en el propio exchange.
 
 > 📘 **¿Primera vez?** Sigue el [**Manual paso a paso**](MANUAL_INSTALACION.md). En Windows se instala con un doble clic y se usa desde un icono en el escritorio.
 
@@ -13,8 +13,13 @@ Bot de trading automático para Binance spot (solo compras en largo, sin apalanc
 - **Varias monedas** a la vez, con límite de posiciones abiertas.
 - Interruptor de seguridad: vende todo y se detiene si el capital cae un 20 %.
 
+**Multi-exchange y asistente de configuración**
+- Asistente en el panel: exchange → modo (simulado / testnet / real) → claves con **prueba de conexión** → monedas, velas y riesgo.
+- Detecta lo que permite cada exchange (testnet, stops en el exchange, tipo de claves) y marca los no compatibles con el motivo (p. ej. bitFlyer no ofrece velas).
+- Claves por exchange y modo, guardadas solo en `.env`; el panel nunca las devuelve completas.
+
 **Ejecución robusta**
-- En modo real deja el **stop loss puesto en Binance** (STOP_LOSS_LIMIT), así protege aunque el PC se apague, y lo sube con el trailing. El bot vigila además el precio por su cuenta.
+- En modo real deja el **stop loss puesto en el exchange** (STOP_LOSS_LIMIT en Binance; orden stop estándar de ccxt en los demás), así protege aunque el PC se apague, y lo sube con el trailing. El bot vigila además el precio por su cuenta.
 - **Reconciliación** al arrancar: detecta stops ejecutados o ventas manuales hechas mientras estaba apagado.
 - Reintenta las consultas si falla la red; las órdenes nunca se repiten a ciegas.
 - Estado persistente y atómico: continúa donde estaba tras un reinicio.
@@ -42,7 +47,7 @@ Bot de trading automático para Binance spot (solo compras en largo, sin apalanc
 | `arrancar-bot.bat` | `python bot.py` (sin panel) |
 | `estado-bot.bat` | `python bot.py --status` |
 
-El modo de ejecución (simulado / testnet / real) y las claves van en `.env` (ver `.env.example`). La estrategia se configura en `config.py`.
+Exchange, modo, claves y monedas se configuran desde el panel (**⚙ Configuración**): se guardan en `.env` (modo y claves, privado) y `settings.json`. Los ajustes avanzados de la estrategia están en `config.py`.
 
 ## Estructura
 
@@ -52,9 +57,10 @@ El modo de ejecución (simulado / testnet / real) y las claves van en `.env` (ve
 | `strategy.py` | Indicadores, señales, stops y tamaño de posición (compartido por backtest y bot) |
 | `bot.py` | Motor: brokers simulado y real, stops en el exchange, reconciliación y estado |
 | `panel.py` + `web/panel.html` | Servidor local y la interfaz del panel |
+| `setup_api.py` | Asistente: catálogo de exchanges, mercados, prueba de conexión y guardado |
 | `backtest.py`, `report.py`, `optimize.py` | Backtest, informe HTML y optimización walk-forward |
-| `exchange.py` | Conexión con Binance (ccxt) y descarga de velas |
-| `tests/` | 20 tests sin conexión: estrategia, backtest, motor (con un Binance simulado) y panel |
+| `exchange.py` | Conexión con el exchange (ccxt), capacidades de cada uno y descarga de velas |
+| `tests/` | 26 tests sin conexión: estrategia, backtest, motor y asistente (con exchanges simulados) y panel |
 | `deploy/trading-bot.service` | Servicio systemd para un servidor Linux |
 
 ## Aviso

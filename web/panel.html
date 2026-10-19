@@ -114,6 +114,53 @@ footer{color:var(--muted);font-size:12px;text-align:center;margin-top:24px}
   padding:10px 16px;border-radius:10px;opacity:0;transition:.25s;z-index:60;font-size:13px}
 .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
 
+/* asistente de configuración */
+.wdialog{background:var(--panel);border:1px solid var(--line2);border-radius:16px;max-width:780px;width:100%;max-height:92vh;display:flex;flex-direction:column;box-shadow:0 24px 70px rgba(0,0,0,.55)}
+.whead{display:flex;align-items:flex-start;gap:12px;padding:20px 22px 6px}
+.whead h3{margin:0;font-size:18px}.whead p{margin:4px 0 0}
+.xbtn{margin-left:auto;background:none;border:0;color:var(--muted);font-size:18px;padding:4px 8px;border-radius:8px}.xbtn:hover{background:var(--panel2);color:var(--text)}
+.steps{display:flex;gap:6px;list-style:none;margin:10px 22px 0;padding:0;counter-reset:s}
+.steps li{flex:1;font-size:12px;color:var(--muted);padding-top:8px;border-top:3px solid var(--line2);counter-increment:s}
+.steps li::before{content:counter(s) ". "}
+.steps li.done{border-color:#5a4a20;color:var(--text2)}.steps li.on{border-color:var(--accent);color:var(--text);font-weight:600}
+.wbody{padding:18px 22px;overflow:auto;min-height:360px}
+.wfoot{display:flex;align-items:center;gap:10px;padding:14px 22px;border-top:1px solid var(--line)}
+.wfoot .msg{font-size:12.5px;color:#ff9aa7;text-align:right;flex:1}
+.exgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:10px}
+.exc{display:flex;gap:12px;align-items:center;text-align:left;background:var(--panel2);border:1px solid var(--line2);border-radius:12px;padding:12px;color:var(--text)}
+.exc:hover{border-color:#3a4459}.exc.sel{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent) inset}
+.exc.off{opacity:.55}
+.mono{width:38px;height:38px;border-radius:10px;display:grid;place-items:center;font-weight:800;font-size:14px;color:#0b0e14;flex:none}
+.tags{display:flex;flex-wrap:wrap;gap:4px;margin-top:4px}
+.tag{font-size:10.5px;padding:1px 6px;border-radius:5px;background:#1f2a44;color:#8fb3ff}
+.tag.g{background:#15302a;color:#6fd1a5}.tag.bad{background:#3a1820;color:#ff8a98}
+.opt{display:flex;gap:14px;align-items:flex-start;background:var(--panel2);border:1px solid var(--line2);border-radius:12px;padding:14px 16px;width:100%;text-align:left;color:var(--text)}
+.opt+.opt{margin-top:10px}.opt.sel{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent) inset}.opt:disabled{opacity:.45;cursor:not-allowed}
+.opt .rd{width:18px;height:18px;border-radius:50%;border:2px solid var(--line2);flex:none;margin-top:2px}.opt.sel .rd{border:5px solid var(--accent)}
+.opt b{display:block;margin-bottom:2px}.opt span{color:var(--text2);font-size:13px}
+.field{margin-bottom:12px}.field label{display:block;font-size:12.5px;color:var(--text2);margin-bottom:5px;font-weight:600}
+.inp{width:100%;background:#0d1119;border:1px solid var(--line2);color:var(--text);border-radius:8px;padding:9px 11px;font:13px var(--mono)}
+.inp:focus{outline:none;border-color:var(--accent)}
+.help{background:#0f1420;border:1px solid var(--line);border-radius:10px;padding:12px 14px;font-size:13px;color:var(--text2);margin-bottom:14px}
+.help ol{margin:6px 0 0;padding-left:20px}.help li{margin:3px 0}
+.note{border-radius:10px;padding:11px 14px;font-size:13px;margin-top:12px;border:1px solid}
+.note.ok{background:#11251f;border-color:#1f4d3d;color:#9fe2c4}.note.bad{background:#211419;border-color:#4a2530;color:#ffb3bd}
+.note.warn{background:#2a2414;border-color:#5a4a20;color:#f3d48a}.note.info{background:#141c2e;border-color:#253457;color:#a9c1f5}
+.seg{display:inline-flex;background:#0d1119;border:1px solid var(--line2);border-radius:9px;padding:3px;gap:3px;flex-wrap:wrap}
+.seg button{background:none;border:0;color:var(--text2);padding:6px 12px;border-radius:7px;font-weight:600;font-size:13px}
+.seg button.on{background:var(--panel2);color:var(--text);box-shadow:0 0 0 1px var(--line2)}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.sel-chips{display:flex;flex-wrap:wrap;gap:6px;min-height:34px;margin-bottom:10px}
+.schip{background:#2a2414;border:1px solid #5a4a20;color:#f3d48a;border-radius:999px;padding:4px 6px 4px 11px;font-size:12.5px;font-weight:600}
+.schip button{background:none;border:0;color:inherit;padding:0 4px;margin-left:2px}
+.mlist{display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:6px;max-height:190px;overflow:auto;margin-top:8px}
+.mitem{background:var(--panel2);border:1px solid var(--line2);border-radius:8px;padding:6px 9px;color:var(--text);text-align:left;font-size:12.5px}
+.mitem:hover{border-color:#3a4459}.mitem.on{border-color:var(--accent);color:var(--accent)}
+.sum{display:grid;grid-template-columns:auto 1fr;gap:8px 18px;font-size:13.5px}.sum span:nth-child(odd){color:var(--muted)}
+.spin{display:inline-block;width:14px;height:14px;border:2px solid var(--line2);border-top-color:var(--accent);border-radius:50%;animation:sp 1s linear infinite;vertical-align:-2px;margin-right:8px}
+@keyframes sp{to{transform:rotate(360deg)}}
+@media (max-width:640px){.row2{grid-template-columns:1fr}.steps li{font-size:0}.steps li::before{font-size:12px}}
+
 @media (max-width:1150px){.kpis{grid-template-columns:repeat(3,1fr)}.grid{grid-template-columns:1fr}.lower{grid-template-columns:1fr}}
 @media (max-width:640px){header{flex-wrap:wrap;padding:10px 16px}main{padding:16px}.kpis{grid-template-columns:1fr 1fr}
   .chartwrap{height:320px}.kpi .v{font-size:20px}.hide-sm{display:none}}
@@ -126,9 +173,11 @@ footer{color:var(--muted);font-size:12px;text-align:center;margin-top:24px}
     Trading Bot
   </div>
   <span id="mode" class="badge b-paper">Simulado</span>
+  <span class="chip hide-sm" id="exName">—</span>
   <div class="status"><span id="dot" class="dot"></span><span id="statusText">Conectando…</span></div>
   <div class="spacer"></div>
   <span id="updated" class="muted hide-sm" style="font-size:12px"></span>
+  <button class="btn" onclick="openWiz()">⚙ Configuración</button>
   <button id="btnStart" class="btn primary" onclick="act('start')">▶ Arrancar</button>
   <button id="btnStop" class="btn" onclick="confirmAct('stop')">■ Parar</button>
   <button class="btn ghost hide-sm" title="Apagar el panel y el bot" onclick="confirmAct('shutdown')">⏻</button>
@@ -143,7 +192,7 @@ footer{color:var(--muted);font-size:12px;text-align:center;margin-top:24px}
   <section class="kpis">
     <div class="kpi"><div class="l">Capital</div><div class="v num" id="kEquity">—</div><div class="s" id="kEquityS">USDT</div></div>
     <div class="kpi"><div class="l">Resultado total</div><div class="v num" id="kPnl">—</div><div class="s" id="kPnlS">desde el inicio</div></div>
-    <div class="kpi"><div class="l">Disponible</div><div class="v num" id="kCash">—</div><div class="s">USDT sin invertir</div></div>
+    <div class="kpi"><div class="l">Disponible</div><div class="v num" id="kCash">—</div><div class="s"><span class="q">USDT</span> sin invertir</div></div>
     <div class="kpi"><div class="l">Posiciones</div><div class="v num" id="kPos">—</div><div class="s" id="kPosS"></div></div>
     <div class="kpi"><div class="l">Operaciones</div><div class="v num" id="kTrades">—</div><div class="s" id="kTradesS"></div></div>
   </section>
@@ -170,7 +219,7 @@ footer{color:var(--muted);font-size:12px;text-align:center;margin-top:24px}
 
   <div class="lower">
     <div class="card"><div class="hd"><h2>Operaciones cerradas</h2><div class="spacer"></div><span class="muted" id="tradesN" style="font-size:12px"></span></div>
-      <div class="tablewrap"><table><thead><tr><th>Salida (UTC)</th><th>Par</th><th class="r">Entrada</th><th class="r">Salida</th><th>Motivo</th><th class="r">Resultado</th><th class="r">USDT</th></tr></thead>
+      <div class="tablewrap"><table><thead><tr><th>Salida (UTC)</th><th>Par</th><th class="r">Entrada</th><th class="r">Salida</th><th>Motivo</th><th class="r">Resultado</th><th class="r q">USDT</th></tr></thead>
       <tbody id="trades"></tbody></table></div></div>
     <div class="card"><div class="hd"><h2>Registro</h2><div class="spacer"></div><span class="muted" style="font-size:12px">bot.log</span></div><div class="log" id="log"></div></div>
   </div>
@@ -180,6 +229,15 @@ footer{color:var(--muted);font-size:12px;text-align:center;margin-top:24px}
 <div class="modal" id="modal"><div class="dialog"><h3 id="mTitle"></h3><p id="mText"></p>
   <div class="act"><button class="btn" onclick="closeModal()">Cancelar</button><button class="btn primary" id="mOk">Confirmar</button></div></div></div>
 <div class="toast" id="toast"></div>
+
+<div class="modal" id="wiz"><div class="wdialog">
+  <div class="whead"><div><h3 id="wTitle">Configuración</h3><p class="muted" id="wSub">Exchange, modo, claves y monedas</p></div>
+    <button class="xbtn" onclick="closeWiz()" title="Cerrar">✕</button></div>
+  <ol class="steps" id="wSteps"><li>Exchange</li><li>Modo</li><li>Claves</li><li>Monedas</li><li>Confirmar</li></ol>
+  <div class="wbody" id="wBody"></div>
+  <div class="wfoot"><button class="btn" id="wBack" onclick="wGo(-1)">Atrás</button><div class="msg" id="wMsg"></div>
+    <button class="btn primary" id="wNext" onclick="wGo(1)">Siguiente</button></div>
+</div></div>
 
 <script>
 const $ = id => document.getElementById(id);
@@ -204,7 +262,7 @@ async function post(path){ const r = await fetch(path,{method:'POST',headers:{'X
 function toast(msg){ const t=$('toast'); t.textContent=msg; t.classList.add('show'); clearTimeout(t._h); t._h=setTimeout(()=>t.classList.remove('show'),3500); }
 
 const ACTIONS = {
-  stop:{title:'¿Parar el bot?', text:'Dejará de abrir y cerrar operaciones. Las posiciones abiertas se mantienen (y en modo real, su stop sigue puesto en Binance).', ok:'Parar', done:'Bot parado'},
+  stop:{title:'¿Parar el bot?', text:'Dejará de abrir y cerrar operaciones. Las posiciones abiertas se mantienen (y en modo real, su stop sigue puesto en el exchange).', ok:'Parar', done:'Bot parado'},
   shutdown:{title:'¿Apagar el panel?', text:'Se cerrará el panel y el bot dejará de funcionar hasta que lo vuelvas a abrir desde el icono del escritorio.', ok:'Apagar', done:'Panel apagado. Puedes cerrar esta pestaña.'},
   resume:{title:'¿Reactivar el bot?', text:'El capital actual pasará a ser el nuevo punto de partida del interruptor de seguridad. Después tendrás que pulsar Arrancar.', ok:'Reactivar', done:'Interruptor reactivado'},
   start:{done:'Bot en marcha'},
@@ -238,16 +296,18 @@ async function refresh(){
   $('errBanner').classList.toggle('show', !!s.last_error); if(s.last_error) $('errBanner').textContent='⚠️ '+s.last_error;
 
   $('kEquity').textContent = nf(s.equity);
-  $('kEquityS').textContent = s.start_equity ? 'USDT · inicio '+nf(s.start_equity) : 'USDT';
+  document.querySelectorAll('.q').forEach(e=>e.textContent=s.quote);
+  $('exName').textContent = s.exchange_name;
+  $('kEquityS').textContent = s.start_equity ? s.quote+' · inicio '+nf(s.start_equity) : s.quote;
   const pnlAbs = s.equity!=null&&s.start_equity ? s.equity-s.start_equity : null;
   $('kPnl').innerHTML = `<span class="${cls(s.pnl_total_pct)}">${pct(s.pnl_total_pct)}</span>`;
-  $('kPnlS').innerHTML = pnlAbs==null?'desde el inicio':`<span class="${cls(pnlAbs)}">${pnlAbs>0?'+':''}${nf(pnlAbs)} USDT</span> desde el inicio`;
+  $('kPnlS').innerHTML = pnlAbs==null?'desde el inicio':`<span class="${cls(pnlAbs)}">${pnlAbs>0?'+':''}${nf(pnlAbs)} ${s.quote}</span> desde el inicio`;
   $('kCash').textContent = s.cash!=null ? nf(s.cash) : (s.equity!=null? nf(s.equity - s.positions.reduce((a,p)=>a+p.qty*p.price,0)) : '—');
   $('kPos').textContent = `${s.positions.length} / ${s.max_positions}`;
   const inv = s.positions.reduce((a,p)=>a+p.qty*p.price,0);
-  $('kPosS').textContent = s.positions.length ? nf(inv)+' USDT invertidos' : 'sin posiciones';
+  $('kPosS').textContent = s.positions.length ? nf(inv)+' '+s.quote+' invertidos' : 'sin posiciones';
   $('kTrades').textContent = s.trades_count;
-  $('kTradesS').innerHTML = s.trades_count ? `acierto ${nf(s.win_rate*100,0)} % · <span class="${cls(s.pnl_closed)}">${s.pnl_closed>0?'+':''}${nf(s.pnl_closed)} USDT</span>` : 'aún ninguna';
+  $('kTradesS').innerHTML = s.trades_count ? `acierto ${nf(s.win_rate*100,0)} % · <span class="${cls(s.pnl_closed)}">${s.pnl_closed>0?'+':''}${nf(s.pnl_closed)} ${s.quote}</span>` : 'aún ninguna';
 
   if(!S.symbol) S.symbol = s.symbols[0];
   renderTabs(s); renderPositions(s); renderStrategy(s); drawEquity(s.equity_history);
@@ -255,7 +315,7 @@ async function refresh(){
 }
 
 function renderTabs(s){
-  const html = s.symbols.map(x=>`<button class="tab ${x===S.symbol?'on':''}" onclick="pick('${x}')">${x.replace('/USDT','')}<span class="muted">/USDT</span></button>`).join('');
+  const html = s.symbols.map(x=>`<button class="tab ${x===S.symbol?'on':''}" onclick="pick('${x}')">${x.split('/')[0]}<span class="muted">/${x.split('/')[1]}</span></button>`).join('');
   if($('tabs').innerHTML!==html) $('tabs').innerHTML=html;
 }
 function pick(sym){ S.symbol=sym; S.chart=null; renderTabs(S.status); drawChart(); loadChart(true); const p=S.status.prices[sym]; $('priceNow').textContent=p?fp(p):''; }
@@ -272,8 +332,8 @@ function renderPositions(s){
       <div class="bar"><div style="${fill}"></div></div>
       <div class="kv"><span>Cantidad</span><span>${nf(p.qty,6)}</span>
         <span>Entrada → actual</span><span>${fp(p.entry)} → ${fp(p.price)}</span>
-        <span>Resultado</span><span class="${cls(p.pnl_usdt)}">${p.pnl_usdt>0?'+':''}${nf(p.pnl_usdt)} USDT</span>
-        <span>${esc((p.stop_kind||'stop').replace(/^./,c=>c.toUpperCase()))}</span><span class="down">${p.stop?fp(p.stop):'—'}${p.exchange_stop?' · en Binance':''}</span>
+        <span>Resultado</span><span class="${cls(p.pnl_usdt)}">${p.pnl_usdt>0?'+':''}${nf(p.pnl_usdt)} ${S.status.quote}</span>
+        <span>${esc((p.stop_kind||'stop').replace(/^./,c=>c.toUpperCase()))}</span><span class="down">${p.stop?fp(p.stop):'—'}${p.exchange_stop?' · en el exchange':''}</span>
         ${p.tp?`<span>Take profit</span><span class="up">${fp(p.tp)}</span>`:''}</div>
       <div style="margin-top:10px;text-align:right"><button class="btn sm danger" onclick="confirmAct('close','${esc(p.symbol)}')">Cerrar posición</button></div>
     </div>`; }).join('');
@@ -286,7 +346,8 @@ function renderStrategy(s){
   $('settings').innerHTML = `<span>Monedas</span><span>${esc(s.symbols.join(', '))}</span>
     <span>Riesgo por operación</span><span>${st.risk_per_trade?nf(st.risk_per_trade*100,1)+' %':'—'}</span>
     <span>Interruptor de seguridad</span><span>−${nf(st.max_drawdown*100,0)} %</span>
-    <span>Stop puesto en Binance</span><span>${s.mode==='live'?(st.exchange_stops?'Sí':'No'):'— (simulado)'}</span>
+    <span>Exchange</span><span>${esc(s.exchange_name)}</span>
+    <span>Stop puesto en el exchange</span><span>${s.mode!=='live'?'— (simulado)':!s.exchange_stops_supported?'No disponible':st.exchange_stops?'Sí':'No'}</span>
     <span>Revisión de precios</span><span>cada ${st.poll_seconds} s</span>`;
 }
 
@@ -405,9 +466,171 @@ function drawEquity(hist){
   ctx.textAlign='right'; ctx.fillText(new Date(hist[hist.length-1][0]*1000).toLocaleDateString('es-ES',{day:'2-digit',month:'short'}), pw, h-4); ctx.textAlign='left';
 }
 
+/* ---------- asistente de configuración ---------- */
+const W = {step:0, setup:null, info:null, d:null, markets:null, quote:null, search:'', test:null, saving:false};
+const POPULAR = ['BTC','ETH','SOL','XRP','BNB','ADA','DOGE','AVAX','LINK','DOT','LTC','TRX','TON','POL','ATOM','NEAR','UNI','XLM','BCH','SHIB'];
+const HUES = ['#f5b83d','#5b8def','#2ebd85','#a78bfa','#f6465d','#3fc1c9','#f08a5d','#c3e66e'];
+const hue = id => HUES[[...id].reduce((a,c)=>a+c.charCodeAt(0),0)%HUES.length];
+const mono = name => name.replace(/[^A-Za-z0-9]/g,'').slice(0,2).toUpperCase();
+async function postJSON(path, body){ const r = await fetch(path,{method:'POST',headers:{'X-Panel':'1','Content-Type':'application/json'},body:JSON.stringify(body)});
+  const j = await r.json().catch(()=>({})); if(!r.ok||j.ok===false&&j.error&&path.endsWith('/save')) throw new Error(j.error||('Error '+r.status)); return j; }
+
+async function openWiz(first){
+  $('wiz').classList.add('show'); $('wBody').innerHTML='<div class="empty"><span class="spin"></span>Cargando…</div>';
+  try{ W.setup = await get('/api/setup'); }catch(e){ $('wBody').innerHTML='<div class="note bad">No se pudo cargar: '+esc(e.message)+'</div>'; return; }
+  const c = W.setup.current;
+  W.d = {exchange:c.exchange, mode:c.mode, testnet:c.testnet, credentials:{}, symbols:[...c.symbols], timeframe:c.timeframe,
+         risk_per_trade:c.risk_per_trade, paper_balance:c.paper_balance};
+  W.step=0; W.markets=null; W.test=null; W.search='';
+  $('wTitle').textContent = first ? 'Bienvenido 👋' : 'Configuración';
+  $('wSub').textContent = first ? 'Conecta tu exchange y elige qué monedas operar. Tardas 2 minutos.' : 'Exchange, modo, claves y monedas';
+  await loadInfo(); wRender();
+}
+function closeWiz(){ $('wiz').classList.remove('show'); }
+async function loadInfo(){
+  W.info = W.setup.featured.find(f=>f.id===W.d.exchange) || null;
+  try{ const i = await get(`/api/setup/exchange?id=${encodeURIComponent(W.d.exchange)}&testnet=${W.d.testnet?1:0}`);
+    W.info = {...i, name: W.info?W.info.name:i.name}; }catch(e){}
+}
+async function pickEx(id){
+  if(W.d.exchange!==id){ W.d.exchange=id; W.d.credentials={}; W.markets=null; W.test=null; if(W.d.testnet) W.d.testnet=false; }
+  await loadInfo(); wRender();
+}
+function setMode(mode, testnet){ W.d.mode=mode; W.d.testnet=!!testnet; W.test=null; W.markets=null; loadInfo().then(wRender); }
+
+function wRender(){
+  $('wSteps').querySelectorAll('li').forEach((li,i)=>li.className = i<W.step?'done':i===W.step?'on':'');
+  $('wBack').style.visibility = W.step? 'visible':'hidden'; $('wMsg').textContent='';
+  $('wNext').textContent = W.step===4 ? 'Guardar y aplicar' : 'Siguiente'; $('wNext').disabled=false;
+  [stepExchange, stepMode, stepKeys, stepCoins, stepSummary][W.step]();
+}
+function stepExchange(){
+  const f = W.setup.featured, inF = f.some(x=>x.id===W.d.exchange);
+  $('wBody').innerHTML = `<p class="muted" style="margin:0 0 12px">¿Con qué exchange quieres operar?</p><div class="exgrid">`+
+    f.map(x=>`<button class="exc ${x.id===W.d.exchange?'sel':''} ${x.compatible?'':'off'}" onclick="pickEx('${x.id}')">
+      <div class="mono" style="background:${hue(x.id)}">${mono(x.name)}</div><div><b>${esc(x.name)}</b><div class="tags">
+      ${x.compatible?'':'<span class="tag bad">No compatible</span>'}${x.compatible&&x.testnet?'<span class="tag">Testnet</span>':''}
+      ${x.compatible&&x.exchange_stops?'<span class="tag g">Stop en el exchange</span>':''}</div></div></button>`).join('')+`</div>
+    <div class="field" style="margin-top:14px"><label>¿Otro exchange?</label>
+    <select class="inp" onchange="this.value&&pickEx(this.value)"><option value="">Elige de la lista completa (${W.setup.others.length})…</option>
+    ${W.setup.others.map(o=>`<option ${o===W.d.exchange?'selected':''}>${o}</option>`).join('')}</select></div>`+
+    (W.info&&!W.info.compatible ? `<div class="note bad"><b>${esc(W.info.name)} no es compatible.</b> ${esc(W.info.reason)}</div>` :
+     W.info&&!inF ? `<div class="note info">Has elegido <b>${esc(W.info.name)}</b>.</div>` : '');
+  $('wNext').disabled = !(W.info&&W.info.compatible);
+}
+function stepMode(){
+  const i=W.info, d=W.d;
+  $('wBody').innerHTML = `<p class="muted" style="margin:0 0 12px">¿Cómo quieres usar ${esc(i.name)}?</p>
+   <button class="opt ${d.mode==='paper'?'sel':''}" onclick="setMode('paper')"><div class="rd"></div><div><b>Simulado <span class="tag g">recomendado para empezar</span></b>
+     <span>Precios reales de ${esc(i.name)} con dinero ficticio. No necesita claves y no arriesga nada.</span></div></button>
+   <button class="opt ${d.mode==='live'&&d.testnet?'sel':''}" ${i.testnet?'':'disabled'} onclick="setMode('live',true)"><div class="rd"></div><div><b>Testnet</b>
+     <span>${i.testnet?'Órdenes de verdad en el entorno de pruebas de '+esc(i.name)+', con dinero de mentira. Necesita claves de testnet.':esc(i.name)+' no tiene entorno de pruebas.'}</span></div></button>
+   <button class="opt ${d.mode==='live'&&!d.testnet?'sel':''}" onclick="setMode('live',false)"><div class="rd"></div><div><b>Dinero real</b>
+     <span>Opera con tu cuenta. Necesita claves de API con permiso de trading (nunca de retiro).</span></div></button>
+   ${d.mode==='paper'?`<div class="field" style="margin-top:16px;max-width:260px"><label>Saldo ficticio inicial</label>
+     <input class="inp" type="number" min="10" step="100" value="${d.paper_balance}" oninput="W.d.paper_balance=+this.value"></div>`:''}
+   ${d.mode==='live'&&!d.testnet?'<div class="note warn">⚠️ Recomendación: prueba antes varias semanas en modo simulado.</div>':''}`;
+}
+function stepKeys(){
+  const i=W.info, d=W.d;
+  if(d.mode==='paper'){ $('wBody').innerHTML=`<div class="note ok" style="margin-top:0">✓ En modo simulado no necesitas claves. Pulsa <b>Siguiente</b>.</div>`; return; }
+  const saved = i.saved||{};
+  const binTest = d.testnet && i.id==='binance';
+  $('wBody').innerHTML = `<div class="help"><b>Cómo crear las claves ${d.testnet?'de testnet ':''}en ${esc(i.name)}</b><ol>
+     <li>${binTest?'Entra en <b>testnet.binance.vision</b> e inicia sesión con GitHub.':d.testnet?`Entra en la web de pruebas (testnet) de ${esc(i.name)}: sus claves son distintas de las reales.`:`Entra en ${i.www?`<b>${esc(String(i.www).replace(/^https?:\/\//,''))}</b>`:esc(i.name)} → ${i.id==='binance'?'<b>Perfil → Gestión de API</b>':'ajustes de tu cuenta → <b>API</b>'}.`}</li>
+     <li>Crea una clave nueva y copia los datos que te pida aquí abajo.</li>
+     <li>Permisos: ✅ <b>Lectura</b> · ✅ <b>Trading spot</b> · ❌ <b>Retiros: nunca</b>.</li>
+     <li>Si el exchange lo permite, restringe la clave a la IP de tu conexión.</li></ol></div>`+
+    i.credentials.map(c=>`<div class="field"><label>${esc(c.label)}</label><div style="display:flex;gap:6px">
+      <input class="inp" type="password" autocomplete="off" spellcheck="false" id="cred_${c.key}" value="${esc(d.credentials[c.key]||'')}"
+       placeholder="${saved[c.key]?'Guardada '+saved[c.key]+' — déjalo vacío para mantenerla':'Pega aquí tu '+esc(c.label)}"
+       oninput="W.d.credentials['${c.key}']=this.value.trim(); W.test=null; renderTest()">
+      <button class="btn sm" type="button" onclick="const x=$('cred_${c.key}'); x.type=x.type==='password'?'text':'password'">👁</button></div></div>`).join('')+
+    `<button class="btn" id="btnTest" onclick="testConn()">🔌 Probar conexión</button><div id="testOut"></div>
+     <p class="muted" style="font-size:12px;margin-top:14px">🔒 Las claves se guardan solo en el archivo .env de este ordenador. Nunca se envían a GitHub ni a ningún otro sitio.</p>`;
+  renderTest();
+}
+function renderTest(){
+  const o=$('testOut'); if(!o) return; const t=W.test; if(t&&t.ok) $('wMsg').textContent='';
+  o.innerHTML = !t ? '' : t==='busy' ? '<div class="note info"><span class="spin"></span>Conectando…</div>' : t.ok ?
+    `<div class="note ok">✓ Conexión correcta con <b>${esc(t.name)}</b>.${t.balances.length?'<br>Saldo: '+t.balances.map(b=>`${nf(b.total, b.total<1?6:2)} ${esc(b.asset)}`).join(' · '):'<br>La cuenta está vacía.'}</div>`
+    : `<div class="note bad">✗ ${esc(t.error)}</div>`;
+}
+async function testConn(){
+  W.test='busy'; renderTest();
+  try{ W.test = await postJSON('/api/setup/test',{exchange:W.d.exchange, testnet:W.d.testnet, credentials:W.d.credentials}); }
+  catch(e){ W.test={ok:false,error:e.message}; }
+  renderTest();
+}
+async function stepCoins(){
+  const d=W.d;
+  if(!W.markets){ $('wBody').innerHTML='<div class="empty"><span class="spin"></span>Cargando los mercados de '+esc(W.info.name)+'…</div>'; $('wNext').disabled=true;
+    try{ W.markets = await get(`/api/setup/markets?id=${encodeURIComponent(d.exchange)}&testnet=${d.testnet?1:0}`); }
+    catch(e){ $('wBody').innerHTML='<div class="note bad">No se pudieron cargar los mercados: '+esc(e.message)+'</div>'; return; }
+    const have = new Set(W.markets.markets.map(m=>m.symbol));
+    d.symbols = d.symbols.filter(s=>have.has(s));
+    const qs = W.markets.quotes.map(q=>q.quote);
+    W.quote = d.symbols.length ? d.symbols[0].split('/')[1] : qs[0];
+    if(!d.symbols.length && have.has('BTC/'+W.quote)) d.symbols=['BTC/'+W.quote];
+    if(!W.info.timeframes.includes(d.timeframe)) d.timeframe = W.info.timeframes.includes('4h')?'4h':W.info.timeframes[0];
+  }
+  renderCoins();
+}
+function setQuote(q){ W.quote=q; W.d.symbols=W.d.symbols.filter(s=>s.endsWith('/'+q)); if(!W.d.symbols.length && W.markets.markets.some(m=>m.symbol==='BTC/'+q)) W.d.symbols=['BTC/'+q]; renderCoins(); }
+function toggleSym(s){ const i=W.d.symbols.indexOf(s); if(i>=0) W.d.symbols.splice(i,1); else if(W.d.symbols.length<10) W.d.symbols.push(s); renderCoins(true); }
+function renderCoins(keepFocus){
+  const d=W.d, q=W.quote, srch=W.search.trim().toUpperCase();
+  const rank = b => { const i=POPULAR.indexOf(b); return i<0?999:i; };
+  const list = W.markets.markets.filter(m=>m.quote===q && (!srch || m.base.toUpperCase().includes(srch)))
+    .sort((a,b)=>rank(a.base)-rank(b.base) || a.base.localeCompare(b.base)).slice(0,60);
+  const quotes = W.markets.quotes.slice(0,8);
+  const html = `<div class="row2"><div><div class="field"><label>Moneda de cuenta</label><div class="seg">${quotes.map(x=>`<button class="${x.quote===q?'on':''}" onclick="setQuote('${x.quote}')">${x.quote}</button>`).join('')}</div></div></div>
+     <div><div class="field"><label>Velas</label><div class="seg">${W.info.timeframes.map(tf=>`<button class="${tf===d.timeframe?'on':''}" onclick="W.d.timeframe='${tf}';renderCoins()">${{'1h':'1 hora','4h':'4 horas','1d':'1 día'}[tf]}</button>`).join('')}</div></div></div></div>
+    <div class="field"><label>Monedas que operará el bot (${d.symbols.length}/10)</label><div class="sel-chips">${d.symbols.length?d.symbols.map(s=>`<span class="schip">${esc(s)}<button onclick="toggleSym('${s}')" title="Quitar">✕</button></span>`).join(''):'<span class="muted" style="font-size:13px">Elige al menos una de la lista.</span>'}</div>
+      <input class="inp" id="msearch" placeholder="Buscar moneda (BTC, ETH, SOL…)" value="${esc(W.search)}" oninput="W.search=this.value;renderCoins(true)">
+      <div class="mlist">${list.map(m=>`<button class="mitem ${d.symbols.includes(m.symbol)?'on':''}" onclick="toggleSym('${m.symbol}')">${esc(m.base)}<span class="muted">/${esc(m.quote)}</span></button>`).join('')||'<span class="muted">Nada que coincida.</span>'}</div></div>
+    <div class="field"><label>Riesgo máximo por operación</label><div class="seg">${[0.005,0.01,0.02].map(r=>`<button class="${Math.abs(r-d.risk_per_trade)<1e-9?'on':''}" onclick="W.d.risk_per_trade=${r};renderCoins()">${nf(r*100,1)} %${r===0.01?' · recomendado':''}</button>`).join('')}</div>
+      <p class="muted" style="font-size:12px;margin:6px 0 0">Si salta el stop, como mucho pierdes este % de tu capital en esa operación.</p></div>`;
+  const pos = $('msearch') ? $('msearch').selectionStart : null;
+  $('wBody').innerHTML = html;
+  if(keepFocus && pos!=null){ const m=$('msearch'); m.focus(); m.setSelectionRange(pos,pos); }
+  $('wNext').disabled = !d.symbols.length;
+}
+function stepSummary(){
+  const d=W.d, i=W.info, cur=W.setup.current;
+  const modeTxt = d.mode==='paper'?'Simulado':d.testnet?'Testnet':'Dinero real';
+  const venueChanged = d.exchange!==cur.exchange || d.mode!==cur.mode || d.testnet!==cur.testnet;
+  let notes='';
+  if(d.mode==='live'&&!d.testnet) notes+=`<div class="note bad">⚠️ <b>Vas a operar con dinero real.</b> Usa solo dinero que puedas permitirte perder. Ningún bot garantiza ganancias.</div>`;
+  if(d.mode==='live'&&!i.exchange_stops) notes+=`<div class="note warn">${esc(i.name)} no permite dejar el stop puesto en el exchange: el bot lo vigilará solo mientras tu PC esté encendido.</div>`;
+  else if(d.mode==='live') notes+=`<div class="note info">El bot dejará el stop puesto en ${esc(i.name)}${i.id==='binance'?' (orden STOP_LOSS_LIMIT)':' (orden stop estándar)'}. Compruébalo primero ${i.testnet?'en testnet o ':''}con poco dinero.</div>`;
+  if(venueChanged) notes+=`<div class="note info">El bot quedará <b>parado</b> con la nueva configuración. Pulsa <b>▶ Arrancar</b> cuando quieras empezar.</div>`;
+  $('wBody').innerHTML = `<div class="sum">
+    <span>Exchange</span><span><b>${esc(i.name)}</b></span>
+    <span>Modo</span><span>${modeTxt}${d.mode==='paper'?' · saldo ficticio '+nf(d.paper_balance)+' '+esc(W.quote):''}</span>
+    <span>Claves</span><span>${d.mode==='paper'?'No hacen falta':(W.test&&W.test.ok?'✓ Probadas':'Guardadas')}</span>
+    <span>Monedas</span><span>${d.symbols.map(esc).join(', ')}</span>
+    <span>Velas</span><span>${{'1h':'1 hora','4h':'4 horas','1d':'1 día'}[d.timeframe]}</span>
+    <span>Riesgo por operación</span><span>${nf(d.risk_per_trade*100,1)} %</span></div>${notes}`;
+}
+async function wGo(dir){
+  const d=W.d;
+  if(dir>0 && W.step===2 && d.mode==='live' && !(W.test&&W.test.ok)){
+    $('wMsg').textContent='Pulsa "Probar conexión" y comprueba que funciona antes de seguir.'; return; }
+  if(dir>0 && W.step===4){
+    $('wNext').disabled=true; $('wMsg').innerHTML='<span class="spin"></span>Guardando…';
+    try{ const r = await postJSON('/api/setup/save', d); closeWiz(); toast(r.restarted?'Configuración guardada. El bot sigue en marcha.':'Configuración guardada');
+      S.symbol=null; S.chart=null; await refresh(); drawChart(); loadChart(true); loadTables(); }
+    catch(e){ $('wMsg').textContent=e.message; $('wNext').disabled=false; }
+    return;
+  }
+  W.step = Math.max(0, Math.min(4, W.step+dir)); wRender();
+}
+
 window.addEventListener('resize', ()=>{ drawChart(); if(S.status) drawEquity(S.status.equity_history); });
 document.addEventListener('keydown', e=>{ if(e.key==='Escape') closeModal(); });
-(async()=>{ await refresh(); loadChart(); loadTables(); })();
+(async()=>{ await refresh(); loadChart(); loadTables();
+  try{ const st = await get('/api/setup'); if(!st.configured) openWiz(true); }catch(e){} })();
 setInterval(()=>{ refresh().then(()=>drawChart()); }, 5000);
 setInterval(loadTables, 10000);
 setInterval(()=>loadChart(), 30000);

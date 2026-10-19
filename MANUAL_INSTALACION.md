@@ -1,5 +1,7 @@
 # 📘 Manual del Trading Bot, paso a paso
 
+Funciona con **Binance, Kraken, Coinbase, OKX, Bybit, KuCoin, Bitget, Bitvavo, Bitfinex, Gate.io, Crypto.com, MEXC, HTX, Bitstamp** y muchos más (la lista completa está en el asistente).
+
 Este manual está pensado para alguien que **nunca ha programado**. En Windows todo se hace con **doble clic**: no hace falta escribir comandos.
 
 > ⏱️ **Tiempo:** unos 15 minutos la primera vez.
@@ -14,21 +16,22 @@ Este manual está pensado para alguien que **nunca ha programado**. En Windows t
 2. [Instalar Python](#2-instalar-python)
 3. [Descargar el bot](#3-descargar-el-bot)
 4. [Instalar el bot (doble clic)](#4-instalar-el-bot-doble-clic)
-5. [El panel de control](#5-el-panel-de-control)
-6. [Probar la estrategia con datos pasados (backtest)](#6-probar-la-estrategia-con-datos-pasados-backtest)
-7. [Recibir avisos en el móvil por Telegram](#7-recibir-avisos-en-el-móvil-por-telegram)
-8. [Probar con la testnet de Binance](#8-probar-con-la-testnet-de-binance)
-9. [Pasar a dinero real](#9-pasar-a-dinero-real)
-10. [Cambiar la configuración](#10-cambiar-la-configuración)
-11. [Que funcione siempre: arranque automático y servidor](#11-que-funcione-siempre-arranque-automático-y-servidor)
-12. [Problemas frecuentes y soluciones](#12-problemas-frecuentes-y-soluciones)
-13. [Resumen de archivos](#13-resumen-de-archivos)
+5. [Conectar tu exchange (asistente)](#5-conectar-tu-exchange-asistente)
+6. [El panel de control](#6-el-panel-de-control)
+7. [Probar la estrategia con datos pasados (backtest)](#7-probar-la-estrategia-con-datos-pasados-backtest)
+8. [Recibir avisos en el móvil por Telegram](#8-recibir-avisos-en-el-móvil-por-telegram)
+9. [Probar con la testnet](#9-probar-con-la-testnet)
+10. [Pasar a dinero real](#10-pasar-a-dinero-real)
+11. [Ajustes avanzados de la estrategia](#11-ajustes-avanzados-de-la-estrategia)
+12. [Que funcione siempre: arranque automático y servidor](#12-que-funcione-siempre-arranque-automático-y-servidor)
+13. [Problemas frecuentes y soluciones](#13-problemas-frecuentes-y-soluciones)
+14. [Resumen de archivos](#14-resumen-de-archivos)
 
 ---
 
 ## 1. Qué es y cómo funciona
 
-El bot **compra y vende criptomonedas solo** en Binance, siguiendo unas reglas fijas:
+El bot **compra y vende criptomonedas solo** en tu exchange, siguiendo unas reglas fijas:
 
 - **Cuándo compra:** cuando la media de los últimos 20 periodos cruza por encima de la de 50 (el precio empieza a subir con fuerza), siempre que el mercado esté en tendencia alcista (precio por encima de la media de 200) y con movimiento claro (ADX ≥ 20).
 - **Cuánto compra:** lo justo para que, si sale mal, pierdas como máximo un **1 % de tu capital** en esa operación.
@@ -75,13 +78,47 @@ Al abrir `Documentos\binance-bot` debes ver archivos como `instalar.bat`, `panel
    - comprueba que todo funciona (debe poner **`passed`**),
    - crea el icono **"Trading Bot"** en tu escritorio.
 5. Al final pregunta **"¿Quieres que el panel se abra solo al encender el PC? [S,N]"**. Pulsa **S** (recomendado) o **N**.
-6. Se abre el **panel** en tu navegador. 🎉
+6. Se abre el **panel** en tu navegador y, la primera vez, el **asistente de configuración** (Parte 5). 🎉
 
 A partir de ahora, para abrir el bot **solo tienes que hacer doble clic en el icono "Trading Bot" del escritorio**.
 
 ---
 
-## 5. El panel de control
+## 5. Conectar tu exchange (asistente)
+
+La primera vez que abres el panel aparece un asistente de 5 pasos. Puedes volver a abrirlo cuando quieras con el botón **⚙ Configuración** de arriba.
+
+**1. Exchange.** Elige el tuyo. Cada uno muestra etiquetas:
+- **Testnet**: tiene entorno de pruebas con dinero de mentira.
+- **Stop en el exchange**: permite dejar el stop loss puesto dentro del exchange, de modo que protege aunque tu PC se apague.
+- **No compatible**: el bot no puede funcionar ahí y te dice por qué. Por ejemplo, **bitFlyer** no ofrece velas históricas, que el bot necesita para calcular la estrategia.
+
+En "¿Otro exchange?" tienes la lista completa; el asistente te dice si cada uno es compatible.
+
+**2. Modo.**
+- **Simulado** (recomendado para empezar): precios reales de ese exchange y dinero ficticio. Eliges el saldo inicial. No necesita claves.
+- **Testnet**: órdenes de verdad en el entorno de pruebas (solo si el exchange lo tiene).
+- **Dinero real.**
+
+**3. Claves** (solo para testnet o dinero real). El asistente te explica cómo crearlas y te pide exactamente los datos que necesita ese exchange: **API Key** y **Secret Key**, y en algunos (OKX, KuCoin, Bitget…) también la **Passphrase**.
+- Permisos de la clave: ✅ **Lectura** · ✅ **Trading spot** · ❌ **Retiros: nunca**.
+- Pulsa **🔌 Probar conexión**: si todo está bien, verás ✓ y tu saldo. No te deja seguir hasta que funcione.
+- Las claves se guardan **solo en el archivo `.env` de tu ordenador**. Al volver a abrir el asistente solo verás los 4 últimos caracteres. Si dejas un campo vacío, se mantiene la clave guardada.
+
+**4. Monedas.**
+- **Moneda de cuenta**: con qué compras (USDT, USDC, EUR, USD…). Todas las monedas del bot deben usar la misma.
+- **Monedas a operar**: hasta 10. Busca por nombre y pulsa para añadir o quitar.
+- **Velas**: 1 hora, 4 horas (recomendado) o 1 día.
+- **Riesgo por operación**: 0,5 %, 1 % (recomendado) o 2 %. Es lo máximo que pierdes en una operación si salta el stop.
+
+**5. Confirmar.** Revisa el resumen y los avisos, y pulsa **Guardar y aplicar**.
+
+> ℹ️ Si cambias de exchange o de modo, el bot se queda **parado**: pulsa **▶ Arrancar** cuando quieras. Si solo cambias monedas o riesgo y estaba en marcha, sigue funcionando con la nueva configuración.
+> 🛡️ No se puede cambiar de exchange o de modo **con posiciones abiertas**: ciérralas antes.
+
+---
+
+## 6. El panel de control
 
 El panel se abre en tu navegador en la dirección **http://127.0.0.1:8765**. Solo funciona en tu ordenador: nadie más puede verlo ni controlarlo.
 
@@ -89,10 +126,10 @@ El panel se abre en tu navegador en la dirección **http://127.0.0.1:8765**. Sol
 
 | Zona | Qué muestra |
 |---|---|
-| **Barra superior** | Modo (**Simulado** / **Testnet** / **Dinero real**), estado (● En marcha / Parado) y los botones |
+| **Barra superior** | Modo (**Simulado** / **Testnet** / **Dinero real**), exchange, estado (● En marcha / Parado) y los botones |
 | **Capital** | Lo que vale tu cuenta ahora (dinero + monedas compradas) |
 | **Resultado total** | Cuánto has ganado o perdido desde que empezaste |
-| **Disponible** | USDT sin invertir |
+| **Disponible** | Dinero sin invertir (en tu moneda de cuenta: USDT, EUR…) |
 | **Posiciones** | Cuántas compras hay abiertas y cuánto dinero hay invertido |
 | **Operaciones** | Operaciones cerradas, % de acierto y resultado |
 | **Gráfico** | Velas de la moneda con las medias, las compras ▲ y ventas ▼ del bot, y las líneas de entrada y stop de la posición abierta. Pasa el ratón para ver los valores de cada vela. Cambia de moneda con las pestañas |
@@ -105,8 +142,9 @@ El panel se abre en tu navegador en la dirección **http://127.0.0.1:8765**. Sol
 
 | Botón | Qué hace |
 |---|---|
+| **⚙ Configuración** | Abre el asistente: exchange, modo, claves y monedas |
 | **▶ Arrancar** | El bot empieza a operar |
-| **■ Parar** | El bot deja de abrir y cerrar operaciones. Las posiciones abiertas se mantienen (en modo real, su stop sigue puesto en Binance) |
+| **■ Parar** | El bot deja de abrir y cerrar operaciones. Las posiciones abiertas se mantienen (en modo real, su stop sigue puesto en el exchange) |
 | **Cerrar posición** | Vende esa moneda ahora mismo, a precio de mercado |
 | **⏻** | Apaga el panel y el bot por completo |
 
@@ -122,13 +160,13 @@ El panel se abre en tu navegador en la dirección **http://127.0.0.1:8765**. Sol
 
 ### Volver a empezar la simulación desde cero
 
-Pulsa ⏻ para apagar el panel y borra los archivos `state.json` y `trades_log.csv` de la carpeta del bot. Al abrirlo de nuevo, empieza con 1.000 USDT ficticios.
+Pulsa ⏻ para apagar el panel y borra los archivos `state.json` y `trades_log.csv` de la carpeta del bot. Al abrirlo de nuevo, empieza con el saldo ficticio elegido en el asistente. (Cambiar el saldo ficticio en el asistente también reinicia la simulación, si no hay posiciones abiertas.)
 
 ---
 
-## 6. Probar la estrategia con datos pasados (backtest)
+## 7. Probar la estrategia con datos pasados (backtest)
 
-Un **backtest** simula qué habría pasado si el bot hubiera funcionado durante el último año, usando precios reales de Binance.
+Un **backtest** simula qué habría pasado si el bot hubiera funcionado durante el último año, usando precios reales de tu exchange.
 
 **Forma fácil:** doble clic en **`backtest.bat`**. Al terminar, se abre un informe con gráficos en el navegador.
 
@@ -172,7 +210,7 @@ venv\Scripts\python optimize.py --days 1095
 
 ---
 
-## 7. Recibir avisos en el móvil por Telegram
+## 8. Recibir avisos en el móvil por Telegram
 
 Te llegará un mensaje cada vez que el bot compre o venda, un resumen diario y cualquier aviso importante.
 
@@ -192,25 +230,17 @@ Te llegará un mensaje cada vez que el bot compre o venda, un resumen diario y c
 
 ---
 
-## 8. Probar con la testnet de Binance
+## 9. Probar con la testnet
 
-La **testnet** es una copia de Binance con dinero de mentira. Sirve para comprobar que el bot envía **órdenes reales** (incluido el stop puesto en Binance) sin arriesgar nada.
+La **testnet** es una copia del exchange con dinero de mentira. Sirve para comprobar que el bot envía **órdenes reales** (incluido el stop puesto en el exchange) sin arriesgar nada. Solo la tienen algunos exchanges (en el asistente llevan la etiqueta **Testnet**).
 
-1. Entra en **https://testnet.binance.vision/** → **"Log In with GitHub"**.
-2. Pulsa **"Generate HMAC_SHA256 Key"**, ponle una descripción y pulsa *Generate*.
-3. Copia la **API Key** y la **Secret Key** (la Secret Key solo se muestra una vez).
-4. Abre `.env` con el Bloc de notas y déjalo así:
-   ```
-   MODE=live
-   TESTNET=true
-   BINANCE_API_KEY=pega_aqui_tu_api_key
-   BINANCE_API_SECRET=pega_aqui_tu_secret_key
-   ```
-5. Pulsa ⏻ en el panel, borra `state.json` y `trades_log.csv`, y abre el panel de nuevo. Arriba debe poner **Testnet**.
+1. Crea claves en la web de pruebas del exchange. Son **distintas** de las reales. En Binance: **https://testnet.binance.vision/** → "Log In with GitHub" → "Generate HMAC_SHA256 Key".
+2. En el panel: **⚙ Configuración** → tu exchange → modo **Testnet** → pega las claves → **Probar conexión** → elige monedas → **Guardar y aplicar**.
+3. Arriba pondrá **Testnet**. Pulsa **▶ Arrancar**.
 
 ---
 
-## 9. Pasar a dinero real
+## 10. Pasar a dinero real
 
 > ⚠️ **Antes de seguir, sé honesto contigo:**
 > - ¿Lo has tenido **varias semanas** en simulado y los resultados te convencen?
@@ -218,38 +248,29 @@ La **testnet** es una copia de Binance con dinero de mentira. Sirve para comprob
 >
 > Si alguna respuesta es "no", espera. Ningún bot garantiza ganancias.
 
-### 9.1 Crear las claves de API en Binance
+### 10.1 Crear las claves de API en tu exchange
 
-1. Entra en **https://www.binance.com** → icono de perfil → **"Gestión de API"**.
-2. **"Crear API"** → **"Generada por el sistema"** → nombre `trading-bot` → verificación de seguridad.
-3. Copia la **API Key** y la **Secret Key** (solo se muestra una vez).
-4. **"Editar restricciones"** y deja los permisos **exactamente así**:
-   - ✅ **Activar lectura**
-   - ✅ **Activar el trading spot y de margen**
-   - ❌ **Activar retiros → NUNCA.** Así, aunque alguien robara tus claves, no podría sacar dinero.
-   - ❌ Todo lo demás, desactivado.
-5. Si tienes IP fija (o usas un servidor), restringe el acceso a esa IP.
+En la web de tu exchange, busca la sección **API** en los ajustes de la cuenta (en Binance: icono de perfil → **Gestión de API** → **Crear API**). Crea una clave y deja los permisos **exactamente así**:
+- ✅ **Lectura**
+- ✅ **Trading spot**
+- ❌ **Retiros → NUNCA.** Así, aunque alguien robara tus claves, no podría sacar dinero.
+- ❌ Todo lo demás (futuros, margen, transferencias), desactivado.
 
-### 9.2 Configurar el bot
+Si el exchange lo permite y tienes IP fija (o usas un servidor), restringe la clave a esa IP. Copia la Secret Key en el momento: la mayoría de exchanges solo la muestran una vez.
 
-1. Abre `.env` con el Bloc de notas:
-   ```
-   MODE=live
-   TESTNET=false
-   BINANCE_API_KEY=tu_api_key_real
-   BINANCE_API_SECRET=tu_secret_key_real
-   ```
-2. Pulsa ⏻ en el panel, borra `state.json` y `trades_log.csv`, y vuelve a abrirlo. Arriba debe poner **Dinero real** en rojo.
+### 10.2 Configurar el bot
 
-### 9.3 Preparar la cuenta
+En el panel: **⚙ Configuración** → tu exchange → **Dinero real** → pega las claves → **Probar conexión** (debe salir ✓ y tu saldo) → elige monedas → **Guardar y aplicar**. Arriba pondrá **Dinero real** en rojo. Pulsa **▶ Arrancar** cuando quieras empezar.
 
-- El bot usa el **USDT de tu cuenta Spot**. **Deja ahí solo lo que quieras que use**; el resto, muévelo a *Fondos* o *Earn*.
+### 10.3 Preparar la cuenta
+
+- El bot usa el saldo de tu **moneda de cuenta** (USDT, EUR…) en la cuenta **Spot**. **Deja ahí solo lo que quieras que use**; el resto, muévelo a otra cartera del exchange.
 - Solo vende lo que **él** ha comprado: no toca otras monedas que tengas.
-- **Empieza con poco** (por ejemplo 100–200 USDT). Con riesgo del 1 %, las compras serán pequeñas y Binance exige un mínimo de unos 5–10 USDT por orden.
+- **Empieza con poco** (por ejemplo 100–200). Con riesgo del 1 %, las compras serán pequeñas, y cada exchange exige un importe mínimo por orden (normalmente 5–10 USDT o EUR).
 
-### 9.4 Protecciones en modo real
+### 10.4 Protecciones en modo real
 
-- **Stop puesto en Binance:** al comprar, el bot deja una orden de stop loss **dentro de Binance**. Si tu PC se apaga o pierde internet, Binance venderá igualmente si el precio cae hasta ahí. El panel lo indica con "· en Binance". Cuando el trailing stop sube, el bot mueve esa orden.
+- **Stop puesto en el exchange:** al comprar, el bot deja una orden de stop loss **dentro del exchange**. Si tu PC se apaga o pierde internet, el exchange venderá igualmente si el precio cae hasta ahí. El panel lo indica con "· en el exchange". Cuando el trailing stop sube, el bot mueve esa orden. En Binance usa su orden nativa STOP_LOSS_LIMIT y en los demás la orden stop estándar. En cualquier caso, **compruébalo primero en testnet o con poco dinero**: la lógica está probada con un exchange simulado, no con dinero real en cada exchange. Si el exchange no permite stops (por ejemplo Bitstamp), el bot vigila el precio solo mientras el PC esté encendido.
 - **Doble vigilancia:** además, el bot vigila el precio cada minuto por su cuenta.
 - **Reconciliación:** al arrancar, comprueba si mientras estaba apagado saltó algún stop o vendiste algo a mano, y lo apunta.
 - **Reintentos:** si falla la conexión, reintenta las consultas. Las órdenes de compra o venta **nunca** se repiten a ciegas.
@@ -257,14 +278,14 @@ La **testnet** es una copia de Binance con dinero de mentira. Sirve para comprob
 ### 🔒 Reglas de seguridad
 
 - **Nunca compartas el archivo `.env`** ni hagas capturas donde se vean tus claves. No se sube a GitHub (está excluido a propósito).
-- Si crees que alguien ha visto tus claves: Binance → Gestión de API → **bórralas** y crea otras.
+- Si crees que alguien ha visto tus claves: en la web del exchange, **bórralas** y crea otras.
 - No tengas el bot funcionando a la vez en dos ordenadores con la misma cuenta.
 
 ---
 
-## 10. Cambiar la configuración
+## 11. Ajustes avanzados de la estrategia
 
-Toda la estrategia está en **`config.py`**.
+Exchange, modo, claves, monedas, velas y riesgo se cambian desde **⚙ Configuración** en el panel. El resto de la estrategia está en **`config.py`**.
 
 1. Pulsa ⏻ en el panel.
 2. Clic derecho sobre `config.py` → *Abrir con* → **Bloc de notas**.
@@ -277,8 +298,6 @@ Toda la estrategia está en **`config.py`**.
 
 | Ajuste | Qué hace | Valor por defecto |
 |---|---|---|
-| `symbols` | Monedas que opera | `("BTC/USDT",)` · varias: `("BTC/USDT", "ETH/USDT", "SOL/USDT")` |
-| `timeframe` | Tamaño de las velas | `"4h"` |
 | `fast` / `slow` | Medias móviles | `20` / `50` |
 | `ma_type` | Tipo de media | `"ema"` |
 | `trend_filter` | Solo compra sobre la media de N velas (0 = no) | `200` |
@@ -288,19 +307,17 @@ Toda la estrategia está en **`config.py`**.
 | `atr_trail_mult` | Trailing a N × ATR del máximo (0 = no) | `3.0` |
 | `stop_loss` / `trailing_stop` | Stops en % (modo `"pct"`) | `0.03` / `0` |
 | `take_profit` | Vender al ganar este % (0 = dejar correr) | `0` |
-| `risk_per_trade` | Pérdida máxima por operación | `0.01` (1 %) |
 | `position_pct` | Tope de capital en una sola compra | `0.95` |
 | `max_open_positions` | Monedas con compra abierta a la vez | `3` |
 | `max_drawdown` | Se detiene si pierdes este % en total | `0.20` |
-| `exchange_stops` | Poner el stop dentro de Binance (modo real) | `True` |
-| `paper_balance` | Saldo ficticio del simulado | `1000.0` |
+| `exchange_stops` | Poner el stop dentro del exchange (modo real) | `True` |
 
 > 💡 Con **varias monedas**, baja `position_pct` (por ejemplo a `0.4`) para que una sola no se quede con todo el dinero.
 > 💡 Antes de cambiar algo, pruébalo con el backtest (Parte 6).
 
 ---
 
-## 11. Que funcione siempre: arranque automático y servidor
+## 12. Que funcione siempre: arranque automático y servidor
 
 ### Arranque automático al encender el PC
 
@@ -311,7 +328,7 @@ Con el arranque automático, al encender el PC el panel se abre en segundo plano
 
 ### Servidor en la nube (opcional, avanzado)
 
-Si no quieres tener tu PC encendido siempre, puedes alquilar un servidor Linux por unos 4–6 €/mes (Hetzner, Contabo, OVH...). Elige uno en **Europa** (Binance bloquea algunos países, como EE. UU.). Instrucciones resumidas, con **Ubuntu 24.04**:
+Si no quieres tener tu PC encendido siempre, puedes alquilar un servidor Linux por unos 4–6 €/mes (Hetzner, Contabo, OVH...). Elige uno en **Europa** (algunos exchanges, como Binance, bloquean ciertos países como EE. UU.). Configura antes el bot en tu PC con el asistente y copia al servidor los archivos `.env` y `settings.json`. Instrucciones resumidas, con **Ubuntu 24.04**:
 
 ```
 apt update && apt install -y python3-venv git
@@ -329,7 +346,7 @@ Comprueba con `systemctl status trading-bot` (debe poner `active (running)`) y m
 
 ---
 
-## 12. Problemas frecuentes y soluciones
+## 13. Problemas frecuentes y soluciones
 
 ### Al hacer doble clic en el icono no pasa nada
 - Espera unos segundos: el panel tarda un poco en arrancar.
@@ -337,10 +354,14 @@ Comprueba con `systemctl status trading-bot` (debe poner `active (running)`) y m
 - Si sigue sin abrir, mira si hay un archivo **`panel_error.txt`** en la carpeta del bot: ahí está el motivo. Cópialo y pregunta a Claude.
 - Prueba con `arrancar-bot.bat`, que muestra los errores en pantalla.
 
-### El panel pone un aviso rojo "No se pudo conectar con Binance"
+### El panel pone un aviso rojo "No se pudo conectar con el exchange"
 - Comprueba tu conexión a internet.
-- Si estás en modo real: revisa las claves en `.env` (sin espacios), que tengas activado **"Spot & Margin Trading"**, y que `TESTNET` sea `true` con claves de testnet y `false` con claves reales.
-- Error **451** o *restricted location*: Binance bloquea tu ubicación (por ejemplo, servidores en EE. UU.).
+- Abre **⚙ Configuración** y pulsa **Probar conexión**: te dirá qué falla (claves incorrectas, faltan permisos, reloj desajustado…).
+- Las claves de **testnet** y las **reales** son distintas: usa cada una en su modo.
+- Error **451** o *restricted location*: el exchange bloquea tu ubicación (por ejemplo, Binance con servidores en EE. UU.).
+
+### Mi exchange aparece como "No compatible"
+El asistente explica el motivo. El más habitual: el exchange no ofrece **velas históricas** a través de su API (le pasa a **bitFlyer**), sin las cuales el bot no puede calcular la estrategia. Usa otro exchange de la lista.
 
 ### "python" no se reconoce como un comando
 No marcaste **"Add python.exe to PATH"**. Vuelve a abrir el instalador de Python → **Modify** → *Next* → marca **"Add Python to environment variables"** → *Install*. Después, repite `instalar.bat`.
@@ -349,10 +370,10 @@ No marcaste **"Add python.exe to PATH"**. Vuelve a abrir el instalador de Python
 El reloj de tu PC no está en hora: *Configuración → Hora e idioma → Fecha y hora* → **"Sincronizar ahora"**.
 
 ### "Saldo insuficiente para comprar"
-No hay USDT suficiente en tu cuenta **Spot**, o la compra calculada es menor que el mínimo de Binance. Añade USDT o sube `risk_per_trade`.
+No hay saldo suficiente de tu moneda de cuenta en **Spot**, o la compra calculada es menor que el mínimo del exchange. Añade saldo o sube el riesgo por operación en ⚙ Configuración.
 
-### "No se pudo colocar el stop en Binance"
-Suele pasar con cantidades muy pequeñas (por debajo del mínimo de Binance). El bot **sigue vigilando el precio por su cuenta**, pero esa protección solo funciona con el PC encendido. Usa importes algo mayores.
+### "No se pudo colocar el stop en …"
+Suele pasar con cantidades muy pequeñas (por debajo del mínimo del exchange) o si el exchange no admite ese tipo de orden. El bot **sigue vigilando el precio por su cuenta**, pero esa protección solo funciona con el PC encendido. Usa importes algo mayores.
 
 ### Banner rojo "Interruptor de seguridad activado"
 El bot perdió más del límite (20 %), vendió todo y se paró para protegerte. **Piensa qué ha pasado antes de seguir.** Para continuar, pulsa **Reactivar** y luego **Arrancar**.
@@ -368,7 +389,7 @@ Copia el mensaje (del panel, de `bot.log` o de `panel_error.txt`) y pregúntale 
 
 ---
 
-## 13. Resumen de archivos
+## 14. Resumen de archivos
 
 | Archivo | Para qué sirve |
 |---|---|
@@ -378,8 +399,9 @@ Copia el mensaje (del panel, de `bot.log` o de `panel_error.txt`) y pregúntale 
 | `backtest.bat` | Prueba la estrategia con el último año y abre el informe |
 | `autoarranque-activar.bat` / `autoarranque-quitar.bat` | Abrir el panel solo al encender el PC |
 | `arrancar-bot.bat` / `estado-bot.bat` | Modo consola sin panel (alternativa) |
-| `.env` | Tus claves y el modo (simulado / testnet / real). **Privado** |
-| `config.py` | La estrategia y la gestión del riesgo |
+| `.env` | Tus claves y el modo (simulado / testnet / real). Lo rellena el asistente. **Privado** |
+| `settings.json` | Exchange, monedas, velas y riesgo elegidos en el asistente |
+| `config.py` | Ajustes avanzados de la estrategia |
 | `state.json` | Lo que recuerda el bot (posiciones abiertas, saldo simulado) |
 | `trades_log.csv` | Todas las operaciones cerradas (se abre con Excel) |
 | `bot.log` | Registro detallado de todo lo que hace |
@@ -387,7 +409,7 @@ Copia el mensaje (del panel, de `bot.log` o de `panel_error.txt`) y pregúntale 
 ### Actualizar a una versión nueva
 
 1. Pulsa ⏻ en el panel.
-2. Descarga el ZIP nuevo de GitHub y copia sus archivos **encima** de tu carpeta `binance-bot`, reemplazando. **No borres** `.env`, `state.json` ni `trades_log.csv`, y si modificaste `config.py`, guárdalo antes.
+2. Descarga el ZIP nuevo de GitHub y copia sus archivos **encima** de tu carpeta `binance-bot`, reemplazando. **No borres** `.env`, `settings.json`, `state.json` ni `trades_log.csv`, y si modificaste `config.py`, guárdalo antes.
 3. Doble clic en `instalar.bat`.
 
 ---
@@ -407,7 +429,7 @@ Copia el mensaje (del panel, de `bot.log` o de `panel_error.txt`) y pregúntale 
    python panel.py
    ```
 5. El panel se abre en el navegador. Para volver a abrirlo otro día: Terminal → `cd` a la carpeta → `source venv/bin/activate` → `python panel.py`.
-6. El backtest se lanza con `python backtest.py --html informe.html` y se abre con `open informe.html`. El archivo `.env` se edita con `open -e .env`.
+6. La primera vez se abre el asistente para conectar tu exchange (Parte 5). El backtest se lanza con `python backtest.py --html informe.html` y se abre con `open informe.html`.
 
 ---
 

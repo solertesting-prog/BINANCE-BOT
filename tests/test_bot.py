@@ -131,6 +131,7 @@ def test_backtest_riesgo_limita_la_perdida():
 class FakeExchange:
     """Imita lo justo de ccxt para probar el bot sin conexión."""
     has = {"createMarketBuyOrderWithCost": True}
+    id, name = "binance", "Binance"
 
     def __init__(self, rows_by_symbol):
         self.rows = rows_by_symbol
@@ -270,7 +271,7 @@ def test_bot_real_detecta_stop_ejecutado_en_binance(isolated):
     ex.balance["BTC"] = 0
     run_engine_from(e, 15, 16)
     assert "BTC/USDT" not in e.state["positions"]
-    assert bot.read_trades()[-1]["motivo"] == "stop loss (Binance)"
+    assert bot.read_trades()[-1]["motivo"] == "stop loss (exchange)"
     assert not any(o[0] == "sell" for o in ex.orders)                     # no vende dos veces
 
 
@@ -346,3 +347,164 @@ def test_panel_api(isolated, monkeypatch):
             urllib.request.urlopen(urllib.request.Request(base + "/api/status", headers={"Host": "evil.com"}))
     finally:
         server.shutdown()
+
+
+# ---------- asistente de configuración (exchanges simulados) ----------
+class AuthenticationError(Exception):
+    pass
+
+
+class FakeOkx:
+    """Exchange simulado con passphrase, testnet y stops en el exchange."""
+    id, name = "okx", "OKX"
+    has = {"fetchOHLCV": True, "createStopLossOrder": True}
+    requiredCredentials = {"apiKey": True, "secret": True, "password": True, "uid": False}
+    urls = {"test": {"api": "https://test"}, "www": "https://www.okx.example"}
+    timeframes = {"1h": "1H", "4h": "4H", "1d": "1D"}
+
+    def __init__(self, params=None):
+        self.params = params or {}
+        for k in ("apiKey", "secret", "password", "uid"):
+            setattr(self, k, self.params.get(k))
+        self.sandbox = False
+
+    def set_sandbox_mode(self, v):
+        self.sandbox = v
+
+    def load_markets(self):
+        mk = lambda b, q: {"spot": True, "active": True, "base": b, "quote": q, "taker": 0.0015}
+        return {"BTC/EUR": mk("BTC", "EUR"), "ETH/EUR": mk("ETH", "EUR"), "BTC/USDT": mk("BTC", "USDT"),
+                "BTC/USDT:USDT": {"spot": False, "base": "BTC", "quote": "USDT"}}
+
+    def fetch_balance(self):
+        if self.apiKey != "buena":
+            raise AuthenticationError("invalid key")
+        return {"total": {"EUR": 500.0, "BTC": 0.0}}
+
+
+class FakeBitflyer(FakeOkx):
+    id, name = "bitflyer", "bitFlyer"
+    has = {"fetchOHLCV": None}
+    urls = {"www": "https://bitflyer.example"}
+
+
+@pytest.fixture
+def fake_setup(tmp_path, monkeypatch):
+    import config as C
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(bot, "STATE_FILE", tmp_path / "state.json")
+    monkeypatch.setattr(bot, "TRADES_FILE", tmp_path / "trades_log.csv")
+    monkeypatch.setattr(C, "ENV_FILE", tmp_path / ".env")
+    monkeypatch.setattr(C, "SETTINGS_FILE", tmp_path / "settings.json")
+    monkeypatch.setattr(exchange, "ccxt", types.SimpleNamespace(
+        okx=FakeOkx, bitflyer=FakeBitflyer, exchanges=["bitflyer", "okx", "otro"]))
+    import setup_api
+    setup_api._cache.clear()
+    return tmp_path
+
+
+def _env_snapshot():
+    import os
+    return dict(os.environ)
+
+
+def _env_restore(snap):
+    import os
+    os.environ.clear()
+    os.environ.update(snap)
+
+
+def test_catalogo_de_exchanges(fake_setup):
+    import setup_api
+    cat = setup_api.catalog()
+    by = {x["id"]: x for x in cat["featured"]}
+    okx, bf = by["okx"], by["bitflyer"]
+    assert okx["compatible"] and okx["testnet"] and okx["exchange_stops"]
+    assert [c["key"] for c in okx["credentials"]] == ["apiKey", "secret", "password"]
+    assert not bf["compatible"] and "velas" in bf["reason"]
+    assert "otro" in cat["others"] and "okx" not in cat["others"]
+
+
+def test_mercados_solo_spot(fake_setup):
+    import setup_api
+    m = setup_api.markets("okx", False)
+    assert {x["symbol"] for x in m["markets"]} == {"BTC/EUR", "ETH/EUR", "BTC/USDT"}
+    assert m["quotes"][0]["quote"] == "USDT" and m["quotes"][1]["quote"] == "EUR"
+
+
+def test_probar_conexion(fake_setup):
+    import setup_api
+    bad = setup_api.test_connection("okx", False, {"apiKey": "mala", "secret": "s", "password": "p"})
+    assert not bad["ok"] and "claves no son correctas" in bad["error"]
+    miss = setup_api.test_connection("okx", False, {"apiKey": "buena", "secret": "s"})
+    assert not miss["ok"] and "Passphrase" in miss["error"]
+    ok = setup_api.test_connection("okx", False, {"apiKey": "buena", "secret": "s", "password": "p"})
+    assert ok["ok"] and ok["balances"][0] == {"asset": "EUR", "total": 500.0}
+
+
+def test_guardar_configuracion_y_claves(fake_setup):
+    import config as C
+    import setup_api
+    snap = _env_snapshot()
+    try:
+        e = bot.Engine(BASE, FakeExchange({"BTC/USDT": rows_of(UP_DOWN)}))
+        body = {"exchange": "okx", "mode": "live", "testnet": False, "symbols": ["btc/eur", "ETH/EUR"],
+                "timeframe": "4h", "risk_per_trade": 0.02, "credentials": {}}
+        with pytest.raises(ValueError, match="Faltan claves"):
+            setup_api.validate_and_save(e, body)
+        with pytest.raises(ValueError, match="no tiene"):
+            setup_api.validate_and_save(e, {**body, "symbols": ["DOGE/EUR"]})
+        with pytest.raises(ValueError, match="mismo"):
+            setup_api.validate_and_save(e, {**body, "symbols": ["BTC/EUR", "BTC/USDT"]})
+        body["credentials"] = {"apiKey": "buena", "secret": "sec", "password": "frase-secreta"}
+        assert setup_api.validate_and_save(e, body) is True          # cambia de exchange
+        env = (fake_setup / ".env").read_text()
+        assert "OKX_API_KEY=buena" in env and "OKX_API_PASSWORD=frase-secreta" in env and "MODE=live" in env
+        assert "buena" not in (fake_setup / "settings.json").read_text()   # las claves NO van aquí
+        cfg = C.load_config()
+        assert (cfg.exchange, cfg.symbols, cfg.quote, cfg.api_password) == ("okx", ("BTC/EUR", "ETH/EUR"), "EUR", "frase-secreta")
+        assert cfg.fee == 0.0015 and cfg.risk_per_trade == 0.02
+        # al volver a abrir el asistente solo se ven los 4 últimos caracteres
+        saved = setup_api.saved_for("okx", False)
+        assert saved["password"] == "•••• reta"
+        assert setup_api.saved_for("okx", False)["secret"] == "••••"            # las cortas, ocultas del todo
+        # guardar de nuevo sin escribir las claves las mantiene
+        body["credentials"] = {}
+        setup_api.validate_and_save(e, body)
+        assert C.load_config().api_key == "buena"
+    finally:
+        _env_restore(snap)
+
+
+def test_no_cambia_de_exchange_con_posiciones_abiertas(fake_setup):
+    import setup_api
+    e = bot.Engine(BASE, FakeExchange({"BTC/USDT": rows_of(UP_DOWN)}))
+    e.state["positions"]["BTC/USDT"] = {"qty": 1, "entry": 100, "peak": 100, "atr": 1, "spent": 100,
+                                        "entry_time": None, "stop_order": None}
+    body = {"exchange": "okx", "mode": "paper", "symbols": ["BTC/EUR"], "timeframe": "4h", "risk_per_trade": 0.01}
+    with pytest.raises(ValueError, match="posiciones abiertas"):
+        setup_api.validate_and_save(e, body)
+    with pytest.raises(ValueError, match="no es compatible|velas"):
+        setup_api.validate_and_save(e, {**body, "exchange": "bitflyer"})
+
+
+def test_panel_aplica_la_configuracion_y_reinicia_el_motor(fake_setup):
+    import panel
+    snap = _env_snapshot()
+    try:
+        e = bot.Engine(BASE, FakeExchange({"BTC/USDT": rows_of(UP_DOWN)}))
+        e.connect()
+        e.state["start_equity"] = 1234
+        app = panel.PanelApp(e)
+        rows = {"BTC/EUR": rows_of(UP_DOWN)}
+        r = app.apply_setup({"exchange": "okx", "mode": "paper", "symbols": ["BTC/EUR"], "timeframe": "1d",
+                             "risk_per_trade": 0.01, "paper_balance": 5000},
+                            engine_factory=lambda cfg: bot.Engine(cfg, FakeExchange(rows)),
+                            data_ex_factory=lambda cfg: None)
+        assert r["ok"] and r["venue_changed"]
+        new = app.engine
+        assert new is not e and new.cfg.exchange == "okx" and new.cfg.timeframe == "1d"
+        assert new.state["start_equity"] is None and new.state["paper_usdt"] == 5000
+        assert new.snapshot()["quote"] == "EUR"
+    finally:
+        _env_restore(snap)
