@@ -216,7 +216,12 @@ def show_status():
         t = pd.read_csv(TRADES_FILE)
         print(f"Operaciones cerradas: {len(t)} | acierto {(t.pnl_pct > 0).mean():.0%} | "
               f"resultado {t.pnl_usdt.sum():+.2f} USDT")
-        print(t.tail(5).to_string(index=False))
+        last = t.tail(5)
+        print("\nÚltimas operaciones:")
+        print(f"  {'salida (UTC)':<19}  {'entrada':>10}  {'salida':>10}  {'motivo':<14} {'resultado':>9} {'USDT':>8}")
+        for x in last.itertuples():
+            print(f"  {str(x.salida)[:16]:<19}  {x.precio_entrada:>10.2f}  {x.precio_salida:>10.2f}  "
+                  f"{x.motivo:<14} {x.pnl_pct:>+9.2%} {x.pnl_usdt:>+8.2f}")
 
 
 def main():

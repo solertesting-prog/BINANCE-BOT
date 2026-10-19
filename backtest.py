@@ -140,7 +140,7 @@ def print_report(r: dict):
     print(f"Tiempo invertido:   {r['exposicion']:.0%}")
     if r["operaciones"]:
         print("\nMotivos de salida:")
-        print(r["trades"].motivo.value_counts().to_string())
+        print(r["trades"].motivo.value_counts().rename_axis(None).to_string(header=False))
 
 
 # ---------- línea de comandos ----------
