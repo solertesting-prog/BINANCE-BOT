@@ -134,6 +134,12 @@ Debe aparecer una lista con `bot.py`, `config.py`, etc. ✅ Si no aparecen, no e
 
 ## 5. Preparar el bot (solo la primera vez)
 
+> 🪟 **Atajo para Windows:** haz **doble clic en `instalar.bat`** dentro de la carpeta del bot. Hace automáticamente todos los pasos 5.1 a 5.5. Si al final pone `9 passed`, salta directamente a la Parte 6.
+>
+> Además tienes `backtest.bat` (Parte 6), `arrancar-bot.bat` (Parte 8) y `estado-bot.bat` (ver cómo va), que también funcionan con doble clic.
+>
+> Si prefieres hacerlo a mano (o usas Mac), sigue los pasos de abajo.
+
 Con la terminal abierta **dentro de la carpeta del bot** (Parte 4), ejecuta estos comandos **uno a uno**, pulsando Enter después de cada uno y esperando a que termine.
 
 ### Paso 5.1 — Crear el "entorno virtual"

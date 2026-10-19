@@ -30,7 +30,7 @@ log = logging.getLogger("bot")
 # ---------- utilidades ----------
 def setup_logging():
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s",
-                        handlers=[logging.FileHandler("bot.log"), logging.StreamHandler()])
+                        handlers=[logging.FileHandler("bot.log", encoding="utf-8"), logging.StreamHandler()])
 
 
 def notify(msg: str):
@@ -68,7 +68,7 @@ def save_state(s: dict):
 def log_trade(s: dict, exit_price: float, qty: float, reason: str):
     new = not TRADES_FILE.exists()
     pnl_pct = (exit_price / s["entry"]) * (1 - cfg.fee) ** 2 - 1
-    with TRADES_FILE.open("a", newline="") as f:
+    with TRADES_FILE.open("a", newline="", encoding="utf-8") as f:
         w = csv.writer(f)
         if new:
             w.writerow(["entrada", "salida", "par", "precio_entrada", "precio_salida",
