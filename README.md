@@ -24,7 +24,8 @@ Valorize Bot es un bot de trading automático para el mercado spot (solo compras
 - Reintenta las consultas si falla la red; las órdenes nunca se repiten a ciegas.
 - Estado persistente y atómico: continúa donde estaba tras un reinicio.
 
-**Licencias (para vender el bot)**
+**Licencias (preparadas para vender el bot)**
+- 🆓 **Ahora mismo es gratuito:** `REQUIRE_LICENSE = False` en `licensing.py`. Para empezar a cobrar, ponlo a `True` (ver [VENTA_LICENCIAS.md](VENTA_LICENCIAS.md)).
 - Activación online con **Lemon Squeezy**: suscripciones, límite de PCs por licencia, revalidación cada 6 h y 72 h de gracia sin internet.
 - Licencia atada al PC, caché firmada (no se puede copiar ni editar) y modo simulado gratis como prueba (configurable).
 - `compilar.bat` genera un `.exe` compilado (Nuitka) para entregar a los clientes sin el código fuente.
