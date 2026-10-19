@@ -11,3 +11,7 @@ venv/
 __pycache__/
 panel_error.txt
 !web/*.html
+license.json
+license.tmp
+build/
+dist/

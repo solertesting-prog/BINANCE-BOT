@@ -33,6 +33,7 @@ from pathlib import Path
 import requests
 
 import exchange as xch
+import licensing
 from config import CONFIG
 from strategy import add_signals, describe, exit_levels, initial_stop, position_spend, warmup_candles
 
@@ -485,6 +486,7 @@ class Engine:
                 return
             if self.state["halted"]:
                 raise RuntimeError("El bot está detenido por el interruptor de seguridad. Reactívalo primero.")
+            licensing.require(self.cfg.mode, self.cfg.testnet)
             if self.broker is None:
                 self.connect()
             self.reconcile()
@@ -579,6 +581,7 @@ class Engine:
             "pnl_closed": pnl_closed, "prices": self.prices, "signals": self.signals,
             "last_cycle": self.last_cycle, "last_error": self.last_error,
             "equity_history": s["equity_history"][-500:], "now": now_iso(),
+            "license": licensing.status(),
             "settings": {"risk_per_trade": cfg.risk_per_trade, "max_drawdown": cfg.max_drawdown,
                          "exchange_stops": cfg.exchange_stops, "poll_seconds": cfg.poll_seconds},
         }

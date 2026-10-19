@@ -389,6 +389,9 @@ Copia el mensaje (del panel, de `bot.log` o de `panel_error.txt`) y pregúntale 
 
 ---
 
+### "Necesitas una licencia activa para operar con dinero real"
+Valorize Bot incluye un sistema de licencias para venderlo. Si es tu copia personal, abre `licensing.py` con el Bloc de notas y pon `REQUIRE_LICENSE = False`. Si lo vas a vender, mira [VENTA_LICENCIAS.md](VENTA_LICENCIAS.md).
+
 ## 14. Resumen de archivos
 
 | Archivo | Para qué sirve |

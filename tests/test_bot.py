@@ -508,3 +508,163 @@ def test_panel_aplica_la_configuracion_y_reinicia_el_motor(fake_setup):
         assert new.snapshot()["quote"] == "EUR"
     finally:
         _env_restore(snap)
+
+
+# ---------- licencias (servidor de Lemon Squeezy simulado) ----------
+class FakeLemon:
+    """Imita la API de licencias de Lemon Squeezy."""
+    def __init__(self, store_id=111, product_id=222, limit=1):
+        self.keys = {"CLAVE-BUENA-1234": {"status": "inactive", "instances": {}}}
+        self.store_id, self.product_id, self.limit = store_id, product_id, limit
+        self.offline = False
+        self.calls = []
+
+    def meta(self):
+        return {"store_id": self.store_id, "product_id": self.product_id, "product_name": "Valorize Bot",
+                "variant_name": "Mensual", "customer_email": "albert@example.com", "customer_name": "Albert"}
+
+    def lk(self, key):
+        k = self.keys[key]
+        return {"status": k["status"], "key": key, "activation_limit": self.limit,
+                "activation_usage": len(k["instances"]), "expires_at": None}
+
+    def __call__(self, endpoint, payload):
+        import requests as rq
+        self.calls.append(endpoint)
+        if self.offline:
+            raise rq.ConnectionError("sin red")
+        key = payload["license_key"]
+        if key not in self.keys:
+            return {"activated": False, "valid": False, "error": "license_key not found."}
+        k = self.keys[key]
+        if endpoint == "activate":
+            if k["status"] in ("expired", "disabled"):
+                return {"activated": False, "error": f"This license key is {k['status']}.", "license_key": self.lk(key)}
+            if len(k["instances"]) >= self.limit:
+                return {"activated": False, "error": "This license key has reached the activation limit."}
+            iid = f"inst-{len(k['instances']) + 1}"
+            k["instances"][iid] = payload["instance_name"]
+            k["status"] = "active"
+            return {"activated": True, "error": None, "license_key": self.lk(key),
+                    "instance": {"id": iid, "name": payload["instance_name"]}, "meta": self.meta()}
+        if endpoint == "validate":
+            name = k["instances"].get(payload.get("instance_id"))
+            ok = name is not None and k["status"] == "active"
+            return {"valid": ok, "error": None if ok else "invalid", "license_key": self.lk(key),
+                    "instance": {"id": payload.get("instance_id"), "name": name} if name else None, "meta": self.meta()}
+        if endpoint == "deactivate":
+            k["instances"].pop(payload["instance_id"], None)
+            if not k["instances"]:
+                k["status"] = "inactive"
+            return {"deactivated": True, "error": None, "license_key": self.lk(key), "meta": self.meta()}
+
+
+@pytest.fixture
+def lemon(tmp_path, monkeypatch):
+    import licensing
+    fake = FakeLemon()
+    monkeypatch.setattr(licensing, "LICENSE_FILE", tmp_path / "license.json")
+    monkeypatch.setattr(licensing, "_post", fake)
+    monkeypatch.setattr(licensing, "STORE_ID", 111)
+    monkeypatch.setattr(licensing, "PRODUCT_IDS", [222])
+    monkeypatch.setattr(licensing, "REQUIRE_LICENSE", True)
+    monkeypatch.setattr(licensing, "FREE_PAPER_MODE", True)
+    return fake
+
+
+def test_licencia_activar_y_validar(lemon):
+    import licensing
+    assert not licensing.status()["licensed"]
+    with pytest.raises(licensing.LicenseError, match="no existe"):
+        licensing.activate("CLAVE-FALSA-0000")
+    st = licensing.activate("CLAVE-BUENA-1234")
+    assert st["licensed"] and st["state"] == "active" and st["customer"] == "al••••@example.com"
+    assert licensing.validate(force=True)["licensed"]
+    # segundo PC: límite de activaciones
+    lemon.keys["CLAVE-BUENA-1234"]["instances"]["otro"] = "OTRO-PC · 00000000"
+    lemon.keys["CLAVE-BUENA-1234"]["instances"].pop("inst-1")
+    assert not licensing.validate(force=True)["licensed"]          # este PC ya no está activado
+
+
+def test_licencia_de_otra_tienda_no_vale(lemon):
+    import licensing
+    lemon.store_id = 999
+    with pytest.raises(licensing.LicenseError, match="no es de Valorize"):
+        licensing.activate("CLAVE-BUENA-1234")
+    assert lemon.calls[-1] == "deactivate"                           # libera la activación
+    assert not licensing.status()["licensed"]
+
+
+def test_licencia_caducada_y_periodo_de_gracia(lemon, monkeypatch):
+    import licensing
+    licensing.activate("CLAVE-BUENA-1234")
+    # sin internet: sigue funcionando durante el periodo de gracia
+    lemon.offline = True
+    st = licensing.validate(force=True)
+    assert st["licensed"] and st["state"] == "grace"
+    real_now = licensing._now
+    monkeypatch.setattr(licensing, "_now", lambda: real_now() + (licensing.GRACE_HOURS + 1) * 3600)
+    assert not licensing.status()["licensed"]                       # pasado el plazo, se bloquea
+    monkeypatch.setattr(licensing, "_now", real_now)
+    # la suscripción caduca
+    lemon.offline = False
+    lemon.keys["CLAVE-BUENA-1234"]["status"] = "expired"
+    st = licensing.validate(force=True)
+    assert not st["licensed"] and st["state"] == "expired" and "caducado" in st["message"]
+
+
+def test_licencia_manipulada_o_copiada_no_vale(lemon):
+    import licensing
+    licensing.activate("CLAVE-BUENA-1234")
+    blob = json.loads(licensing.LICENSE_FILE.read_text())
+    blob["data"]["status"] = "active"
+    blob["data"]["expires_at"] = "2099-01-01"                       # editado a mano
+    licensing.LICENSE_FILE.write_text(json.dumps(blob))
+    assert not licensing.status()["licensed"]
+
+
+def test_licencia_desactivar(lemon):
+    import licensing
+    licensing.activate("CLAVE-BUENA-1234")
+    licensing.deactivate()
+    assert not licensing.LICENSE_FILE.exists() and lemon.keys["CLAVE-BUENA-1234"]["instances"] == {}
+
+
+def test_bot_exige_licencia_para_dinero_real(isolated, lemon):
+    import licensing
+    e = bot.Engine(replace(BASE, mode="live"), FakeExchange({"BTC/USDT": rows_of(UP_DOWN)}))
+    with pytest.raises(licensing.LicenseError, match="dinero real"):
+        e.start()
+    e2 = bot.Engine(BASE, FakeExchange({"BTC/USDT": rows_of(UP_DOWN)}))   # simulado: gratis
+    licensing.require("paper")
+    licensing.activate("CLAVE-BUENA-1234")
+    licensing.require("live")                                            # con licencia, sí
+    assert e2.snapshot()["license"]["licensed"]
+
+
+def test_panel_activa_licencia(isolated, lemon):
+    import threading
+    import urllib.request
+
+    import panel
+    e = bot.Engine(BASE, FakeExchange({"BTC/USDT": rows_of(UP_DOWN)}))
+    server = panel.make_server(e, port=0)
+    threading.Thread(target=server.serve_forever, daemon=True).start()
+    base = f"http://127.0.0.1:{server.server_address[1]}"
+
+    def post(path, body):
+        req = urllib.request.Request(base + path, data=json.dumps(body).encode(), method="POST",
+                                     headers={"X-Panel": "1", "Content-Type": "application/json"})
+        try:
+            return json.loads(urllib.request.urlopen(req).read())
+        except urllib.error.HTTPError as err:
+            return json.loads(err.read())
+    try:
+        bad = post("/api/license/activate", {"key": "CLAVE-FALSA-0000"})
+        assert not bad["ok"] and bad["code"] == "license"
+        ok = post("/api/license/activate", {"key": "CLAVE-BUENA-1234"})
+        assert ok["ok"] and ok["licensed"]
+        st = json.loads(urllib.request.urlopen(base + "/api/status").read())
+        assert st["license"]["state"] == "active" and "CLAVE-BUENA" not in json.dumps(st)   # nunca la clave completa
+    finally:
+        server.shutdown()

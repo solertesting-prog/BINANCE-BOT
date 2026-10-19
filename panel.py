@@ -28,6 +28,7 @@ import numpy as np
 import bot
 import config as C
 import exchange as xch
+import licensing
 import setup_api
 from config import CONFIG
 from strategy import add_signals
@@ -211,6 +212,8 @@ class Handler(BaseHTTPRequestHandler):
                 self._json(bot.read_trades()[-200:][::-1])
             elif u.path == "/api/log":
                 self._json({"lines": tail(bot.LOG_FILE, 200)})
+            elif u.path == "/api/license":
+                self._json(licensing.status())
             elif u.path == "/api/setup":
                 self._json({**setup_api.current(app.engine.cfg), **setup_api.catalog()})
             elif u.path == "/api/setup/exchange":
@@ -241,6 +244,19 @@ class Handler(BaseHTTPRequestHandler):
                                                             body.get("credentials") or {}))
             if u.path == "/api/setup/save":
                 return self._json(app.apply_setup(body))
+            if u.path == "/api/license/activate":
+                st = licensing.activate(body.get("key", ""))
+                log.info(f"Licencia activada en este PC ({st.get('product')}).")
+                return self._json({"ok": True, **st})
+            if u.path == "/api/license/refresh":
+                return self._json({"ok": True, **licensing.validate(force=True)})
+            if u.path == "/api/license/deactivate":
+                cfg = e.cfg
+                if e.is_running() and licensing.REQUIRE_LICENSE and not (cfg.mode == "paper" and licensing.FREE_PAPER_MODE):
+                    e.stop()
+                st = licensing.deactivate()
+                log.info("Licencia desactivada en este PC.")
+                return self._json({"ok": True, **st})
             if u.path == "/api/start":
                 e.start()
             elif u.path == "/api/stop":
@@ -262,7 +278,7 @@ class Handler(BaseHTTPRequestHandler):
             self._json({"ok": True})
         except (Exception, SystemExit) as ex:
             log.warning(f"Acción {u.path} fallida: {ex}")
-            self._json({"ok": False, "error": str(ex)}, 400)
+            self._json({"ok": False, "error": str(ex), "code": getattr(ex, "code", None)}, 400)
 
 
 def make_server(engine, port: int = None, host: str = "127.0.0.1", data_ex=None):
@@ -289,6 +305,23 @@ def price_watcher(app, stop_event):
             engine.refresh_prices()
         except (Exception, SystemExit) as e:
             engine.last_error = str(e)
+
+
+def license_watcher(app, stop_event):
+    """Revalida la licencia periódicamente; si deja de ser válida, para el bot."""
+    while True:
+        engine = app.engine
+        try:
+            licensing.validate()             # solo contacta con el servidor si toca
+            licensing.require(engine.cfg.mode, engine.cfg.testnet)
+        except licensing.LicenseError as e:
+            if engine.is_running():
+                engine.stop(notify_user=False)
+                bot.notify(f"⛔ Valorize Bot parado: {e}", engine.cfg)
+        except Exception as e:
+            log.warning(f"No se pudo comprobar la licencia: {e}")
+        if stop_event.wait(1800):
+            return
 
 
 def main():
@@ -324,6 +357,7 @@ def main():
 
     stop_event = threading.Event()
     threading.Thread(target=price_watcher, args=(server.app, stop_event), daemon=True).start()
+    threading.Thread(target=license_watcher, args=(server.app, stop_event), daemon=True).start()
     if not a.no_browser:
         threading.Timer(1.0, webbrowser.open, [url]).start()
     try:

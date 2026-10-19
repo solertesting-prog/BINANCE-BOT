@@ -161,6 +161,13 @@ footer{color:var(--muted);font-size:12px;text-align:center;margin-top:24px}
 @keyframes sp{to{transform:rotate(360deg)}}
 @media (max-width:640px){.row2{grid-template-columns:1fr}.steps li{font-size:0}.steps li::before{font-size:12px}}
 
+/* licencia */
+.lic{border:1px solid var(--line2);background:var(--panel2);color:var(--text2);padding:6px 11px;border-radius:999px;font-size:12px;font-weight:600}
+.lic.ok{color:#6fd1a5;border-color:#1f4d3d;background:#11251f}.lic.warn{color:#f3d48a;border-color:#5a4a20;background:#2a2414}
+.lic.bad{color:#ff9aa7;border-color:#4a2530;background:#211419}
+.ldialog{max-width:520px}
+.keyinp{font:15px var(--mono);letter-spacing:.5px;text-align:center;padding:12px}
+
 @media (max-width:1150px){.kpis{grid-template-columns:repeat(3,1fr)}.grid{grid-template-columns:1fr}.lower{grid-template-columns:1fr}}
 @media (max-width:640px){header{flex-wrap:wrap;padding:10px 16px}main{padding:16px}.kpis{grid-template-columns:1fr 1fr}
   .chartwrap{height:320px}.kpi .v{font-size:20px}.hide-sm{display:none}}
@@ -177,6 +184,7 @@ footer{color:var(--muted);font-size:12px;text-align:center;margin-top:24px}
   <div class="status"><span id="dot" class="dot"></span><span id="statusText">Conectando…</span></div>
   <div class="spacer"></div>
   <span id="updated" class="muted hide-sm" style="font-size:12px"></span>
+  <button class="lic" id="licBadge" style="display:none" onclick="openLic()"></button>
   <button class="btn" onclick="openWiz()">⚙ Configuración</button>
   <button id="btnStart" class="btn primary" onclick="act('start')">▶ Arrancar</button>
   <button id="btnStop" class="btn" onclick="confirmAct('stop')">■ Parar</button>
@@ -230,6 +238,12 @@ footer{color:var(--muted);font-size:12px;text-align:center;margin-top:24px}
   <div class="act"><button class="btn" onclick="closeModal()">Cancelar</button><button class="btn primary" id="mOk">Confirmar</button></div></div></div>
 <div class="toast" id="toast"></div>
 
+<div class="modal" id="licm"><div class="wdialog ldialog">
+  <div class="whead"><div><h3>🔑 Licencia de Valorize Bot</h3><p class="muted" id="lSub"></p></div>
+    <button class="xbtn" onclick="closeLic()" title="Cerrar">✕</button></div>
+  <div class="wbody" id="lBody" style="min-height:0"></div>
+</div></div>
+
 <div class="modal" id="wiz"><div class="wdialog">
   <div class="whead"><div><h3 id="wTitle">Configuración</h3><p class="muted" id="wSub">Exchange, modo, claves y monedas</p></div>
     <button class="xbtn" onclick="closeWiz()" title="Cerrar">✕</button></div>
@@ -258,7 +272,8 @@ const ago = iso => { if(!iso) return ''; const s=(Date.now()-Date.parse(iso.repl
 
 /* ---------- API ---------- */
 async function get(path){ const r = await fetch(path,{cache:'no-store'}); const j = await r.json(); if(!r.ok) throw new Error(j.error||r.status); return j; }
-async function post(path){ const r = await fetch(path,{method:'POST',headers:{'X-Panel':'1'}}); const j = await r.json().catch(()=>({})); if(!r.ok||j.ok===false) throw new Error(j.error||('Error '+r.status)); return j; }
+async function post(path){ const r = await fetch(path,{method:'POST',headers:{'X-Panel':'1'}}); const j = await r.json().catch(()=>({}));
+  if(!r.ok||j.ok===false){ const e=new Error(j.error||('Error '+r.status)); e.code=j.code; throw e; } return j; }
 function toast(msg){ const t=$('toast'); t.textContent=msg; t.classList.add('show'); clearTimeout(t._h); t._h=setTimeout(()=>t.classList.remove('show'),3500); }
 
 const ACTIONS = {
@@ -275,7 +290,7 @@ function confirmAct(name, arg){
 function closeModal(){ $('modal').classList.remove('show'); }
 async function act(name, arg, done){
   try{ await post('/api/'+name+(arg?'?symbol='+encodeURIComponent(arg):'')); toast(done||ACTIONS[name].done); }
-  catch(e){ toast('⚠️ '+e.message); }
+  catch(e){ if(e.code==='license') openLic(e.message); else toast('⚠️ '+e.message); }
   refresh(); if(name==='close') loadChart(true);
 }
 
@@ -309,6 +324,7 @@ async function refresh(){
   $('kTrades').textContent = s.trades_count;
   $('kTradesS').innerHTML = s.trades_count ? `acierto ${nf(s.win_rate*100,0)} % · <span class="${cls(s.pnl_closed)}">${s.pnl_closed>0?'+':''}${nf(s.pnl_closed)} ${s.quote}</span>` : 'aún ninguna';
 
+  renderLicBadge(s.license);
   if(!S.symbol) S.symbol = s.symbols[0];
   renderTabs(s); renderPositions(s); renderStrategy(s); drawEquity(s.equity_history);
   const p = s.prices[S.symbol]; if(p) $('priceNow').textContent = fp(p);
@@ -466,6 +482,53 @@ function drawEquity(hist){
   ctx.textAlign='right'; ctx.fillText(new Date(hist[hist.length-1][0]*1000).toLocaleDateString('es-ES',{day:'2-digit',month:'short'}), pw, h-4); ctx.textAlign='left';
 }
 
+/* ---------- licencia ---------- */
+let LIC = null;
+function renderLicBadge(l){
+  LIC = l; const b=$('licBadge'); if(!l||!l.required){ b.style.display='none'; return; }
+  b.style.display='';
+  b.className = 'lic '+(l.state==='active'?'ok':l.state==='grace'||l.state==='none'?'warn':'bad');
+  b.textContent = l.state==='active'?'🔑 Licencia activa':l.state==='grace'?'🔑 Licencia (sin conexión)':l.state==='none'?(l.free_paper?'🔑 Prueba gratuita':'🔑 Sin licencia'):'🔑 Licencia no válida';
+}
+function openLic(msg){ $('licm').classList.add('show'); renderLic(msg); }
+function closeLic(){ $('licm').classList.remove('show'); }
+function renderLic(msg, busy){
+  const l = LIC||{}; const box=$('lBody');
+  $('lSub').textContent = 'Este ordenador: '+(l.machine||'');
+  const note = msg ? `<div class="note ${/activa|activada/i.test(msg)?'ok':'bad'}" style="margin:0 0 14px">${esc(msg)}</div>` : '';
+  if(l.licensed && l.state!=='not_required'){
+    box.innerHTML = note+`<div class="sum">
+      <span>Estado</span><span class="${l.state==='active'?'up':''}">${l.state==='active'?'✓ Activa':'⚠️ '+esc(l.message)}</span>
+      <span>Producto</span><span>${esc([l.product,l.variant].filter(Boolean).join(' · ')||'—')}</span>
+      <span>Titular</span><span>${esc(l.customer||'—')}</span>
+      <span>Clave</span><span class="num">${esc(l.key_hint||'')}</span>
+      <span>Ordenadores</span><span>${esc(l.activations||'—')}</span>
+      <span>Caduca</span><span>${l.expires_at?esc(String(l.expires_at).slice(0,10)):'Con la suscripción / sin caducidad'}</span>
+      <span>Última comprobación</span><span>${esc(l.last_check||'')}</span></div>
+      <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:18px">
+        <button class="btn" onclick="licAct('refresh')" ${busy?'disabled':''}>Comprobar ahora</button>
+        <button class="btn danger" onclick="licAct('deactivate')" ${busy?'disabled':''}>Desactivar en este PC</button></div>
+      <p class="muted" style="font-size:12px;margin-top:12px">Desactívala aquí antes de cambiar de ordenador: así liberas la activación para el nuevo PC.</p>`;
+    return;
+  }
+  box.innerHTML = note+(l.state&&l.state!=='none'?`<div class="note bad" style="margin:0 0 14px">${esc(l.message)}</div>`:'')+
+    `<p style="margin:0 0 12px;color:var(--text2)">Pega la clave de licencia que recibiste por email al comprar Valorize Bot.</p>
+     <input class="inp keyinp" id="licKey" placeholder="XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX" autocomplete="off" spellcheck="false">
+     <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:14px;align-items:center">
+       ${l.purchase_url?`<a class="btn ghost" href="${esc(l.purchase_url)}" target="_blank" rel="noopener" style="text-decoration:none;margin-right:auto">Comprar licencia ↗</a>`:''}
+       <button class="btn primary" onclick="licAct('activate')" ${busy?'disabled':''}>${busy?'<span class="spin"></span>Activando…':'Activar'}</button></div>
+     ${l.free_paper?'<div class="note info">Sin licencia puedes usar el <b>modo simulado</b> gratis para probar el bot. La licencia hace falta para la testnet y el dinero real.</div>':''}`;
+  setTimeout(()=>$('licKey')&&$('licKey').focus(), 50);
+}
+async function licAct(what){
+  const key = what==='activate' ? ($('licKey').value||'').trim() : null;
+  if(what==='deactivate' && !confirm('¿Desactivar la licencia en este ordenador? Si el bot opera con dinero real, se parará.')) return;
+  renderLic(null, true);
+  try{ const r = await postJSON('/api/license/'+what, key?{key}:{}); LIC=r; renderLicBadge(r);
+    renderLic(what==='activate'?'✓ Licencia activada en este ordenador.':what==='refresh'?(r.licensed?'✓ Licencia comprobada: activa.':r.message):'Licencia desactivada en este ordenador.'); refresh(); }
+  catch(e){ renderLic(e.message); }
+}
+
 /* ---------- asistente de configuración ---------- */
 const W = {step:0, setup:null, info:null, d:null, markets:null, quote:null, search:'', test:null, saving:false};
 const POPULAR = ['BTC','ETH','SOL','XRP','BNB','ADA','DOGE','AVAX','LINK','DOT','LTC','TRX','TON','POL','ATOM','NEAR','UNI','XLM','BCH','SHIB'];
@@ -473,7 +536,7 @@ const HUES = ['#f5b83d','#5b8def','#2ebd85','#a78bfa','#f6465d','#3fc1c9','#f08a
 const hue = id => HUES[[...id].reduce((a,c)=>a+c.charCodeAt(0),0)%HUES.length];
 const mono = name => name.replace(/[^A-Za-z0-9]/g,'').slice(0,2).toUpperCase();
 async function postJSON(path, body){ const r = await fetch(path,{method:'POST',headers:{'X-Panel':'1','Content-Type':'application/json'},body:JSON.stringify(body)});
-  const j = await r.json().catch(()=>({})); if(!r.ok||j.ok===false&&j.error&&path.endsWith('/save')) throw new Error(j.error||('Error '+r.status)); return j; }
+  const j = await r.json().catch(()=>({})); if(!r.ok||j.ok===false&&j.error&&!path.endsWith('/test')) throw new Error(j.error||('Error '+r.status)); return j; }
 
 async function openWiz(first){
   $('wiz').classList.add('show'); $('wBody').innerHTML='<div class="empty"><span class="spin"></span>Cargando…</div>';
@@ -529,7 +592,8 @@ function stepMode(){
      <span>Opera con tu cuenta. Necesita claves de API con permiso de trading (nunca de retiro).</span></div></button>
    ${d.mode==='paper'?`<div class="field" style="margin-top:16px;max-width:260px"><label>Saldo ficticio inicial</label>
      <input class="inp" type="number" min="10" step="100" value="${d.paper_balance}" oninput="W.d.paper_balance=+this.value"></div>`:''}
-   ${d.mode==='live'&&!d.testnet?'<div class="note warn">⚠️ Recomendación: prueba antes varias semanas en modo simulado.</div>':''}`;
+   ${d.mode==='live'&&!d.testnet?'<div class="note warn">⚠️ Recomendación: prueba antes varias semanas en modo simulado.</div>':''}
+   ${d.mode==='live'&&LIC&&LIC.required&&!LIC.licensed?'<div class="note info">🔑 Para arrancar en este modo necesitarás una licencia activa (puedes configurarlo ya y activarla después).</div>':''}`;
 }
 function stepKeys(){
   const i=W.info, d=W.d;
@@ -628,7 +692,7 @@ async function wGo(dir){
 }
 
 window.addEventListener('resize', ()=>{ drawChart(); if(S.status) drawEquity(S.status.equity_history); });
-document.addEventListener('keydown', e=>{ if(e.key==='Escape') closeModal(); });
+document.addEventListener('keydown', e=>{ if(e.key==='Escape'){ closeModal(); closeLic(); } });
 (async()=>{ await refresh(); loadChart(); loadTables();
   try{ const st = await get('/api/setup'); if(!st.configured) openWiz(true); }catch(e){} })();
 setInterval(()=>{ refresh().then(()=>drawChart()); }, 5000);

@@ -24,6 +24,12 @@ Valorize Bot es un bot de trading automático para el mercado spot (solo compras
 - Reintenta las consultas si falla la red; las órdenes nunca se repiten a ciegas.
 - Estado persistente y atómico: continúa donde estaba tras un reinicio.
 
+**Licencias (para vender el bot)**
+- Activación online con **Lemon Squeezy**: suscripciones, límite de PCs por licencia, revalidación cada 6 h y 72 h de gracia sin internet.
+- Licencia atada al PC, caché firmada (no se puede copiar ni editar) y modo simulado gratis como prueba (configurable).
+- `compilar.bat` genera un `.exe` compilado (Nuitka) para entregar a los clientes sin el código fuente.
+- Guía del vendedor en [VENTA_LICENCIAS.md](VENTA_LICENCIAS.md) y manual del cliente en [MANUAL_CLIENTE.md](MANUAL_CLIENTE.md).
+
 **Panel de control** (`http://127.0.0.1:8765`)
 - Gráfico de velas con las medias, las compras y ventas del bot y las líneas de entrada y stop.
 - Capital, resultado, posiciones con su P&L y su stop, curva de capital, historial y registro en vivo.
@@ -58,9 +64,11 @@ Exchange, modo, claves y monedas se configuran desde el panel (**⚙ Configuraci
 | `bot.py` | Motor: brokers simulado y real, stops en el exchange, reconciliación y estado |
 | `panel.py` + `web/panel.html` | Servidor local y la interfaz del panel |
 | `setup_api.py` | Asistente: catálogo de exchanges, mercados, prueba de conexión y guardado |
+| `licensing.py` | Licencias con Lemon Squeezy (datos de tu tienda al principio del archivo) |
+| `compilar.bat`, `cliente/` | Compilación a `.exe` e instalador para clientes |
 | `backtest.py`, `report.py`, `optimize.py` | Backtest, informe HTML y optimización walk-forward |
 | `exchange.py` | Conexión con el exchange (ccxt), capacidades de cada uno y descarga de velas |
-| `tests/` | 26 tests sin conexión: estrategia, backtest, motor y asistente (con exchanges simulados) y panel |
+| `tests/` | 33 tests sin conexión: estrategia, backtest, motor, asistente y licencias (con exchanges y servidor de licencias simulados) y panel |
 | `deploy/valorize-bot.service` | Servicio systemd para un servidor Linux |
 
 ## Aviso
