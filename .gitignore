@@ -1,0 +1,10 @@
+.env
+state.json
+state.tmp
+bot.log
+trades_log.csv
+data/
+optim_resultados.csv
+*.html
+venv/
+__pycache__/
