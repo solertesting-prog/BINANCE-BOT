@@ -326,23 +326,9 @@ Exchange, modo, claves, monedas, velas y riesgo se cambian desde **⚙ Configura
 
 Con el arranque automático, al encender el PC el panel se abre en segundo plano (sin ventana) y, si el bot estaba en marcha, continúa solo. Para verlo, doble clic en el icono del escritorio.
 
-### Servidor en la nube (opcional, avanzado)
+### Servidor en la nube: el bot 24 horas y accesible desde el móvil
 
-Si no quieres tener tu PC encendido siempre, puedes alquilar un servidor Linux por unos 4–6 €/mes (Hetzner, Contabo, OVH...). Elige uno en **Europa** (algunos exchanges, como Binance, bloquean ciertos países como EE. UU.). Configura antes el bot en tu PC con el asistente y copia al servidor los archivos `.env` y `settings.json`. Instrucciones resumidas, con **Ubuntu 24.04**:
-
-```
-apt update && apt install -y python3-venv git
-adduser bot
-su - bot
-git clone https://github.com/solertesting-prog/BINANCE-BOT.git valorize-bot
-cd valorize-bot && python3 -m venv venv && venv/bin/pip install -r requirements.txt
-cp .env.example .env && nano .env
-exit
-sed 's/usuario/bot/g' /home/bot/valorize-bot/deploy/valorize-bot.service > /etc/systemd/system/valorize-bot.service
-systemctl daemon-reload && systemctl enable --now valorize-bot
-```
-
-Comprueba con `systemctl status valorize-bot` (debe poner `active (running)`) y mira el registro con `journalctl -u valorize-bot -f`. En el servidor el bot funciona sin panel; el estado se consulta con `venv/bin/python bot.py --status`.
+Si no quieres tener tu PC encendido siempre, puedes llevar el bot a un servidor en internet por unos 6 €/mes. Se instala solo pegando un texto al crearlo, con HTTPS y contraseña. Instrucciones completas en **[SERVIDOR.md](SERVIDOR.md)**.
 
 ---
 

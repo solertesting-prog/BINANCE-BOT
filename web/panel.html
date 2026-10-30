@@ -188,7 +188,8 @@ footer{color:var(--muted);font-size:12px;text-align:center;margin-top:24px}
   <button class="btn" onclick="openWiz()">⚙ Configuración</button>
   <button id="btnStart" class="btn primary" onclick="act('start')">▶ Arrancar</button>
   <button id="btnStop" class="btn" onclick="confirmAct('stop')">■ Parar</button>
-  <button class="btn ghost hide-sm" title="Apagar el panel y el bot" onclick="confirmAct('shutdown')">⏻</button>
+  <button class="btn ghost hide-sm" id="btnOff" title="Apagar el panel y el bot" onclick="confirmAct('shutdown')">⏻</button>
+  <button class="btn ghost" id="btnLogout" style="display:none" title="Cerrar sesión" onclick="logout()">Salir</button>
 </header>
 
 <main>
@@ -231,7 +232,7 @@ footer{color:var(--muted);font-size:12px;text-align:center;margin-top:24px}
       <tbody id="trades"></tbody></table></div></div>
     <div class="card"><div class="hd"><h2>Registro</h2><div class="spacer"></div><span class="muted" style="font-size:12px">bot.log</span></div><div class="log" id="log"></div></div>
   </div>
-  <footer>El bot sigue funcionando aunque cierres esta pestaña. Para apagarlo todo, pulsa ⏻. · Herramienta personal, no es asesoramiento financiero.</footer>
+  <footer id="foot">El bot sigue funcionando aunque cierres esta pestaña. Para apagarlo todo, pulsa ⏻. · Herramienta personal, no es asesoramiento financiero.</footer>
 </main>
 
 <div class="modal" id="modal"><div class="dialog"><h3 id="mTitle"></h3><p id="mText"></p>
@@ -271,8 +272,9 @@ const ago = iso => { if(!iso) return ''; const s=(Date.now()-Date.parse(iso.repl
   return s<60?'hace '+Math.max(1,Math.round(s))+' s':s<3600?'hace '+Math.round(s/60)+' min':'hace '+Math.round(s/3600)+' h'; };
 
 /* ---------- API ---------- */
-async function get(path){ const r = await fetch(path,{cache:'no-store'}); const j = await r.json(); if(!r.ok) throw new Error(j.error||r.status); return j; }
-async function post(path){ const r = await fetch(path,{method:'POST',headers:{'X-Panel':'1'}}); const j = await r.json().catch(()=>({}));
+async function get(path){ const r = await fetch(path,{cache:'no-store'}); if(r.status===401){ location.href='/login'; throw new Error('Inicia sesión'); }
+  const j = await r.json(); if(!r.ok) throw new Error(j.error||r.status); return j; }
+async function post(path){ const r = await fetch(path,{method:'POST',headers:{'X-Panel':'1'}}); if(r.status===401){ location.href='/login'; } const j = await r.json().catch(()=>({}));
   if(!r.ok||j.ok===false){ const e=new Error(j.error||('Error '+r.status)); e.code=j.code; throw e; } return j; }
 function toast(msg){ const t=$('toast'); t.textContent=msg; t.classList.add('show'); clearTimeout(t._h); t._h=setTimeout(()=>t.classList.remove('show'),3500); }
 
@@ -325,6 +327,8 @@ async function refresh(){
   $('kTradesS').innerHTML = s.trades_count ? `acierto ${nf(s.win_rate*100,0)} % · <span class="${cls(s.pnl_closed)}">${s.pnl_closed>0?'+':''}${nf(s.pnl_closed)} ${s.quote}</span>` : 'aún ninguna';
 
   renderLicBadge(s.license);
+  $('btnOff').style.display = s.remote ? 'none' : ''; $('btnLogout').style.display = s.remote ? '' : 'none';
+  if(s.remote) $('foot').textContent = 'El bot funciona en tu servidor las 24 horas, aunque cierres esta pestaña. · Herramienta personal, no es asesoramiento financiero.';
   if(!S.symbol) S.symbol = s.symbols[0];
   renderTabs(s); renderPositions(s); renderStrategy(s); drawEquity(s.equity_history);
   const p = s.prices[S.symbol]; if(p) $('priceNow').textContent = fp(p);
@@ -482,6 +486,8 @@ function drawEquity(hist){
   ctx.textAlign='right'; ctx.fillText(new Date(hist[hist.length-1][0]*1000).toLocaleDateString('es-ES',{day:'2-digit',month:'short'}), pw, h-4); ctx.textAlign='left';
 }
 
+async function logout(){ try{ await fetch('/api/logout',{method:'POST',headers:{'X-Panel':'1'}}); }catch(e){} location.href='/login'; }
+
 /* ---------- licencia ---------- */
 let LIC = null;
 function renderLicBadge(l){
@@ -536,6 +542,7 @@ const HUES = ['#f5b83d','#5b8def','#2ebd85','#a78bfa','#f6465d','#3fc1c9','#f08a
 const hue = id => HUES[[...id].reduce((a,c)=>a+c.charCodeAt(0),0)%HUES.length];
 const mono = name => name.replace(/[^A-Za-z0-9]/g,'').slice(0,2).toUpperCase();
 async function postJSON(path, body){ const r = await fetch(path,{method:'POST',headers:{'X-Panel':'1','Content-Type':'application/json'},body:JSON.stringify(body)});
+  if(r.status===401){ location.href='/login'; }
   const j = await r.json().catch(()=>({})); if(!r.ok||j.ok===false&&j.error&&!path.endsWith('/test')) throw new Error(j.error||('Error '+r.status)); return j; }
 
 async function openWiz(first){

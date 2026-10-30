@@ -25,6 +25,7 @@ from urllib.parse import parse_qs, urlparse
 
 import numpy as np
 
+import auth
 import bot
 import config as C
 import exchange as xch
@@ -35,7 +36,7 @@ from strategy import add_signals
 
 ROOT = Path(__file__).resolve().parent
 WEB_DIR = ROOT / "web"
-ALLOWED_HOSTS = {"127.0.0.1", "localhost"}
+COOKIE = "vb_session"
 log = logging.getLogger("bot")
 
 
@@ -177,21 +178,51 @@ class Handler(BaseHTTPRequestHandler):
     def log_message(self, *args):
         pass
 
-    def _send(self, code, body: bytes, ctype: str):
+    def _send(self, code, body: bytes, ctype: str, headers: dict = None):
         self.send_response(code)
         self.send_header("Content-Type", ctype)
         self.send_header("Content-Length", str(len(body)))
         self.send_header("Cache-Control", "no-store")
         self.send_header("X-Content-Type-Options", "nosniff")
+        self.send_header("X-Frame-Options", "DENY")
+        self.send_header("Referrer-Policy", "no-referrer")
+        if self._https():
+            self.send_header("Strict-Transport-Security", "max-age=31536000")
+        for k, v in (headers or {}).items():
+            self.send_header(k, v)
         self.end_headers()
         self.wfile.write(body)
 
-    def _json(self, obj, code=200):
-        self._send(code, json.dumps(obj, default=str).encode("utf-8"), "application/json; charset=utf-8")
+    def _json(self, obj, code=200, headers: dict = None):
+        self._send(code, json.dumps(obj, default=str).encode("utf-8"), "application/json; charset=utf-8", headers)
+
+    def _from_proxy(self) -> bool:
+        return self.client_address[0] in ("127.0.0.1", "::1")
+
+    def _https(self) -> bool:
+        return self._from_proxy() and self.headers.get("X-Forwarded-Proto") == "https"
+
+    def _ip(self) -> str:
+        fwd = self.headers.get("X-Forwarded-For") if self._from_proxy() else None
+        return (fwd.split(",")[0].strip() if fwd else self.client_address[0])
 
     def _host_ok(self) -> bool:
-        host = (self.headers.get("Host") or "").rsplit(":", 1)[0]
-        return host in ALLOWED_HOSTS
+        host = (self.headers.get("Host") or "").rsplit(":", 1)[0].lower()
+        return host in auth.allowed_hosts()
+
+    def _token(self) -> str:
+        for part in (self.headers.get("Cookie") or "").split(";"):
+            k, _, v = part.strip().partition("=")
+            if k == COOKIE:
+                return v
+        return ""
+
+    def _authed(self) -> bool:
+        return not auth.enabled() or auth.check(self._token())
+
+    def _cookie(self, token: str, max_age: int) -> str:
+        return (f"{COOKIE}={token}; Path=/; HttpOnly; SameSite=Strict; Max-Age={max_age}"
+                + ("; Secure" if self._https() else ""))
 
     def do_GET(self):
         if not self._host_ok():
@@ -199,13 +230,23 @@ class Handler(BaseHTTPRequestHandler):
         app = self.server.app
         u = urlparse(self.path)
         q = parse_qs(u.query)
+        if u.path == "/login":
+            return self._send(200, (WEB_DIR / "login.html").read_bytes(), "text/html; charset=utf-8")
+        if not self._authed() and u.path != "/favicon.ico":
+            if u.path.startswith("/api/"):
+                return self._json({"ok": False, "error": "Inicia sesión", "code": "auth"}, 401)
+            self.send_response(302)
+            self.send_header("Location", "/login")
+            self.send_header("Content-Length", "0")
+            self.end_headers()
+            return
         try:
             if u.path in ("/", "/index.html"):
                 self._send(200, (WEB_DIR / "panel.html").read_bytes(), "text/html; charset=utf-8")
             elif u.path == "/favicon.ico" and (ROOT / "assets" / "bot.ico").exists():
                 self._send(200, (ROOT / "assets" / "bot.ico").read_bytes(), "image/x-icon")
             elif u.path == "/api/status":
-                self._json(app.engine.snapshot())
+                self._json({**app.engine.snapshot(), "remote": auth.enabled()})
             elif u.path == "/api/candles":
                 self._json(app.candles(q.get("symbol", [app.engine.cfg.symbols[0]])[0]))
             elif u.path == "/api/trades":
@@ -239,6 +280,19 @@ class Handler(BaseHTTPRequestHandler):
         try:
             length = min(int(self.headers.get("Content-Length") or 0), 65536)
             body = json.loads(self.rfile.read(length) or b"{}") if length else {}
+            if u.path == "/api/login":
+                try:
+                    token = auth.login(str(body.get("password", "")), self._ip())
+                except auth.AuthError as ae:
+                    log.warning(f"Intento de acceso fallido al panel desde {self._ip()}")
+                    return self._json({"ok": False, "error": str(ae)}, 401)
+                log.info(f"Sesión iniciada en el panel desde {self._ip()}")
+                return self._json({"ok": True}, headers={"Set-Cookie": self._cookie(token, auth.SESSION_HOURS * 3600)})
+            if u.path == "/api/logout":
+                auth.logout(self._token())
+                return self._json({"ok": True}, headers={"Set-Cookie": self._cookie("", 0)})
+            if not self._authed():
+                return self._json({"ok": False, "error": "Inicia sesión", "code": "auth"}, 401)
             if u.path == "/api/setup/test":
                 return self._json(setup_api.test_connection(body["exchange"], bool(body.get("testnet")),
                                                             body.get("credentials") or {}))
@@ -266,6 +320,8 @@ class Handler(BaseHTTPRequestHandler):
             elif u.path == "/api/resume":
                 e.resume_after_halt()
             elif u.path == "/api/shutdown":
+                if auth.enabled():
+                    return self._json({"ok": False, "error": "En el servidor el panel no se apaga desde aquí."}, 400)
                 if e.is_running():
                     e.stop()                   # apagado a propósito: no se reanuda solo
                 self._json({"ok": True})
@@ -327,9 +383,26 @@ def license_watcher(app, stop_event):
 def main():
     p = argparse.ArgumentParser(description="Valorize Bot - panel")
     p.add_argument("--no-browser", action="store_true", help="no abrir el navegador")
+    p.add_argument("--set-password", action="store_true",
+                   help="crea o cambia la contraseña del panel (necesaria para usarlo por internet)")
     p.add_argument("--port", type=int, default=CONFIG.panel_port)
     a = p.parse_args()
     url = f"http://127.0.0.1:{a.port}/"
+
+    if a.set_password:
+        import getpass
+        pw = getpass.getpass(f"Nueva contraseña del panel (mínimo {auth.MIN_LENGTH} caracteres): ")
+        if pw != getpass.getpass("Repítela: "):
+            raise SystemExit("Las contraseñas no coinciden.")
+        try:
+            auth.set_password(pw)
+        except auth.AuthError as e:
+            raise SystemExit(str(e))
+        print("Contraseña guardada. Desde ahora el panel pedirá iniciar sesión.")
+        return
+    if auth.unsafe_config():
+        raise SystemExit("PANEL_HOSTS permite acceder desde internet pero no hay contraseña. "
+                         "Créala con: python panel.py --set-password")
 
     if port_in_use(a.port):                    # ya abierto: solo mostramos el navegador
         if not a.no_browser:

@@ -16,3 +16,4 @@ license.tmp
 build/
 dist/
 nuitka-crash-report.xml
+cloud-init-servidor.txt

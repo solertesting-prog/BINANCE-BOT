@@ -668,3 +668,101 @@ def test_panel_activa_licencia(isolated, lemon):
         assert st["license"]["state"] == "active" and "CLAVE-BUENA" not in json.dumps(st)   # nunca la clave completa
     finally:
         server.shutdown()
+
+
+# ---------- acceso con contraseña (panel en un servidor) ----------
+@pytest.fixture
+def with_password(tmp_path, monkeypatch):
+    import auth
+    import config as C
+    monkeypatch.setattr(C, "ENV_FILE", tmp_path / ".env")
+    auth._sessions.clear()
+    auth._fails.clear()
+    auth.set_password("contraseña-segura-123")
+    (tmp_path / ".env").write_text((tmp_path / ".env").read_text() + "PANEL_HOSTS=bot.example.com\n")
+    return tmp_path
+
+
+def _panel(engine):
+    import threading
+    import panel
+    server = panel.make_server(engine, port=0)
+    threading.Thread(target=server.serve_forever, daemon=True).start()
+    return server, f"http://127.0.0.1:{server.server_address[1]}"
+
+
+def _req(base, path, method="GET", body=None, headers=None):
+    import urllib.error
+    import urllib.request
+    h = {"X-Panel": "1", "Content-Type": "application/json", **(headers or {})}
+    req = urllib.request.Request(base + path, data=json.dumps(body).encode() if body is not None else None,
+                                 method=method, headers=h)
+
+    class NoRedirect(urllib.request.HTTPRedirectHandler):
+        def redirect_request(self, *a, **k):
+            return None
+    opener = urllib.request.build_opener(NoRedirect)
+    try:
+        r = opener.open(req)
+        return r.status, r.headers, r.read()
+    except urllib.error.HTTPError as err:
+        return err.code, err.headers, err.read()
+
+
+def test_contraseña_hash_y_verificacion(with_password):
+    import auth
+    stored = auth.password_hash()
+    assert stored.startswith("scrypt:") and "contraseña-segura-123" not in (with_password / ".env").read_text()
+    assert auth.verify("contraseña-segura-123", stored) and not auth.verify("otra", stored)
+    with pytest.raises(auth.AuthError, match="al menos"):
+        auth.set_password("corta")
+
+
+def test_panel_exige_login(isolated, with_password):
+    import auth
+    e = bot.Engine(BASE, FakeExchange({"BTC/USDT": rows_of(UP_DOWN)}))
+    server, base = _panel(e)
+    try:
+        code, hdr, _ = _req(base, "/")
+        assert code == 302 and hdr["Location"] == "/login"
+        assert _req(base, "/api/status")[0] == 401
+        assert _req(base, "/api/start", "POST", {})[0] == 401
+        assert _req(base, "/login")[0] == 200
+        code, _, body = _req(base, "/api/login", "POST", {"password": "mala"})
+        assert code == 401 and "incorrecta" in json.loads(body)["error"]
+        code, hdr, _ = _req(base, "/api/login", "POST", {"password": "contraseña-segura-123"})
+        assert code == 200
+        cookie = hdr["Set-Cookie"].split(";")[0]
+        assert "HttpOnly" in hdr["Set-Cookie"] and "SameSite=Strict" in hdr["Set-Cookie"]
+        code, _, body = _req(base, "/api/status", headers={"Cookie": cookie})
+        assert code == 200 and json.loads(body)["remote"] is True
+        # en el servidor no se puede apagar el panel desde la web
+        assert _req(base, "/api/shutdown", "POST", {}, {"Cookie": cookie})[0] == 400
+        # el dominio del servidor está permitido; otros no
+        assert _req(base, "/login", headers={"Host": "bot.example.com"})[0] == 200
+        assert _req(base, "/login", headers={"Host": "evil.com"})[0] == 403
+        # cerrar sesión invalida la cookie
+        _req(base, "/api/logout", "POST", {}, {"Cookie": cookie})
+        assert _req(base, "/api/status", headers={"Cookie": cookie})[0] == 401
+    finally:
+        server.shutdown()
+
+
+def test_bloqueo_por_intentos(with_password):
+    import auth
+    for _ in range(auth.MAX_FAILS - 1):
+        with pytest.raises(auth.AuthError, match="incorrecta"):
+            auth.login("mala", "1.2.3.4")
+    with pytest.raises(auth.AuthError, match="bloqueado"):
+        auth.login("mala", "1.2.3.4")
+    with pytest.raises(auth.AuthError, match="Demasiados intentos"):
+        auth.login("contraseña-segura-123", "1.2.3.4")        # ni con la buena, durante el bloqueo
+    assert auth.login("contraseña-segura-123", "5.6.7.8")      # otra IP no está bloqueada
+
+
+def test_no_arranca_abierto_a_internet_sin_contraseña(tmp_path, monkeypatch):
+    import auth
+    import config as C
+    monkeypatch.setattr(C, "ENV_FILE", tmp_path / ".env")
+    (tmp_path / ".env").write_text("PANEL_HOSTS=bot.example.com\n")
+    assert auth.unsafe_config()

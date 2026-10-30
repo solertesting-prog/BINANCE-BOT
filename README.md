@@ -31,6 +31,11 @@ Valorize Bot es un bot de trading automático para el mercado spot (solo compras
 - `compilar.bat` genera un `.exe` compilado (Nuitka) para entregar a los clientes sin el código fuente.
 - Guía del vendedor en [VENTA_LICENCIAS.md](VENTA_LICENCIAS.md) y manual del cliente en [MANUAL_CLIENTE.md](MANUAL_CLIENTE.md).
 
+**Servidor 24/7 con acceso web** ([SERVIDOR.md](SERVIDOR.md))
+- `preparar-servidor.bat` genera un texto *cloud-init*: al crear un servidor (p. ej. Hetzner, ~6 €/mes) se instala solo.
+- HTTPS automático con Caddy (dominio gratuito `<ip>.sslip.io` o uno propio), servicio que se reinicia solo, cortafuegos y parches automáticos.
+- Login con contraseña (hash scrypt), cookie segura, bloqueo tras 5 intentos fallidos y lista de dominios permitidos.
+
 **Panel de control** (`http://127.0.0.1:8765`)
 - Gráfico de velas con las medias, las compras y ventas del bot y las líneas de entrada y stop.
 - Capital, resultado, posiciones con su P&L y su stop, curva de capital, historial y registro en vivo.
@@ -69,8 +74,10 @@ Exchange, modo, claves y monedas se configuran desde el panel (**⚙ Configuraci
 | `compilar.bat`, `cliente/` | Compilación a `.exe` e instalador para clientes |
 | `backtest.py`, `report.py`, `optimize.py` | Backtest, informe HTML y optimización walk-forward |
 | `exchange.py` | Conexión con el exchange (ccxt), capacidades de cada uno y descarga de velas |
-| `tests/` | 33 tests sin conexión: estrategia, backtest, motor, asistente y licencias (con exchanges y servidor de licencias simulados) y panel |
-| `deploy/valorize-bot.service` | Servicio systemd para un servidor Linux |
+| `tests/` | 37 tests sin conexión: estrategia, backtest, motor, asistente, licencias y acceso con contraseña (con exchanges y servidor de licencias simulados) y panel |
+| `auth.py`, `web/login.html` | Acceso con contraseña al panel (para usarlo por internet) |
+| `deploy/instalar-servidor.sh`, `deploy/generar_cloud_init.py`, `preparar-servidor.bat` | Instalación automática en un servidor (ver SERVIDOR.md) |
+| `deploy/valorize-bot.service` | Servicio systemd básico (alternativa manual) |
 
 ## Aviso
 
