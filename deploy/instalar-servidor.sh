@@ -51,7 +51,14 @@ if [ ! -d "$APP_DIR/.git" ]; then
   git clone --depth 1 "$REPO" "$APP_DIR"
 fi
 chown -R "$APP_USER:" "$APP_DIR"
+SELF="$APP_DIR/deploy/instalar-servidor.sh"
+BEFORE="$(sha256sum "$SELF" 2>/dev/null | cut -d' ' -f1)"
 sudo -u "$APP_USER" git -C "$APP_DIR" pull --ff-only     # actualiza (como el usuario del bot)
+if [ -z "${VALORIZE_REEXEC:-}" ] && [ "$BEFORE" != "$(sha256sum "$SELF" | cut -d' ' -f1)" ]; then
+  echo "==> El instalador se ha actualizado: se vuelve a ejecutar la versión nueva"
+  export VALORIZE_REEXEC=1
+  exec bash "$SELF"
+fi
 
 echo "==> [4/7] Entorno de Python"
 sudo -u "$APP_USER" python3 -m venv "$APP_DIR/venv"
