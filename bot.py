@@ -60,12 +60,21 @@ def now_iso() -> str:
     return datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
 
 
+_TELEGRAM = None          # (token, chat_id) cambiados desde el panel sin reiniciar
+
+
+def set_telegram(token: str, chat_id: str):
+    global _TELEGRAM
+    _TELEGRAM = (token or "", chat_id or "")
+
+
 def notify(msg: str, cfg=CONFIG):
     log.info(msg)
-    if cfg.telegram_token and cfg.telegram_chat_id:
+    token, chat = _TELEGRAM if _TELEGRAM is not None else (cfg.telegram_token, cfg.telegram_chat_id)
+    if token and chat:
         try:
-            requests.post(f"https://api.telegram.org/bot{cfg.telegram_token}/sendMessage",
-                          data={"chat_id": cfg.telegram_chat_id, "text": msg}, timeout=10)
+            requests.post(f"https://api.telegram.org/bot{token}/sendMessage",
+                          data={"chat_id": chat, "text": msg}, timeout=10)
         except Exception as e:
             log.warning(f"No se pudo enviar a Telegram: {e}")
 

@@ -31,6 +31,7 @@ import config as C
 import exchange as xch
 import licensing
 import setup_api
+import telegram_setup
 from config import CONFIG
 from strategy import add_signals
 
@@ -255,6 +256,8 @@ class Handler(BaseHTTPRequestHandler):
                 self._json({"lines": tail(bot.LOG_FILE, 200)})
             elif u.path == "/api/license":
                 self._json(licensing.status())
+            elif u.path == "/api/telegram":
+                self._json(telegram_setup.status())
             elif u.path == "/api/setup":
                 self._json({**setup_api.current(app.engine.cfg), **setup_api.catalog()})
             elif u.path == "/api/setup/exchange":
@@ -298,6 +301,24 @@ class Handler(BaseHTTPRequestHandler):
                                                             body.get("credentials") or {}))
             if u.path == "/api/setup/save":
                 return self._json(app.apply_setup(body))
+            if u.path in ("/api/telegram/connect", "/api/telegram/test", "/api/telegram/remove"):
+                try:
+                    if u.path.endswith("/connect"):
+                        r = telegram_setup.connect(str(body.get("token", "")), str(body.get("chat_id", "")))
+                    elif u.path.endswith("/test"):
+                        r = telegram_setup.test()
+                    else:
+                        r = telegram_setup.remove()
+                except telegram_setup.TelegramError as te:
+                    return self._json({"ok": False, "error": str(te)}, 400)
+                if not u.path.endswith("/test"):
+                    st = telegram_setup.status()
+                    bot.set_telegram(*(telegram_setup.saved() if st["configured"] else ("", "")))
+                    if r.get("configured"):
+                        log.info("Avisos por Telegram activados desde el panel.")
+                    elif u.path.endswith("/remove"):
+                        log.info("Avisos por Telegram desactivados desde el panel.")
+                return self._json(r)
             if u.path == "/api/license/activate":
                 st = licensing.activate(body.get("key", ""))
                 log.info(f"Licencia activada en este PC ({st.get('product')}).")

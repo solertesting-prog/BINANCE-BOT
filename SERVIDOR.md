@@ -83,7 +83,7 @@ Para no tener dos bots a la vez, en el panel de tu PC pulsa **⏻** y, si activa
 
 ## Recomendado
 
-- **Avisos por Telegram:** con el bot en un servidor es la mejor forma de enterarte de compras, ventas y problemas. Configúralos como en el manual (Parte 8) y pon `TELEGRAM_TOKEN` y `TELEGRAM_CHAT_ID` en el `.env` del servidor (ver "Administración" abajo).
+- **Avisos por Telegram:** con el bot en un servidor es la mejor forma de enterarte de compras, ventas y problemas. En el panel pulsa **🔔 Avisos** y sigue los 3 pasos (crear tu bot con @BotFather, pegar el token y escribirle). Se activan al momento, sin reiniciar nada.
 - **Dinero real:** en tu exchange, **restringe la clave de API a la IP de tu servidor** (en AWS, si vas a hacerlo, asigna antes una *IP elástica* para que no cambie). Así, aunque alguien robara la clave, no podría usarla desde otro sitio. Y nunca actives el permiso de retiros.
 
 ## Administración (avanzado)
@@ -99,7 +99,7 @@ Solo si alguna vez lo necesitas. Abre una terminal del servidor desde el navegad
 | Ver cómo fue la instalación | `cat /var/log/valorize-install.log` |
 | Actualizar a la última versión de GitHub | `bash /opt/valorize-bot/deploy/instalar-servidor.sh` |
 | Cambiar la contraseña del panel | `sudo -u valorize /opt/valorize-bot/venv/bin/python /opt/valorize-bot/panel.py --set-password` |
-| Editar el `.env` (Telegram…) | `nano /opt/valorize-bot/.env` y después `systemctl restart valorize-bot` |
+| Editar el `.env` a mano | `nano /opt/valorize-bot/.env` y después `systemctl restart valorize-bot` |
 | Reiniciar el bot | `systemctl restart valorize-bot` |
 
 Tus datos (configuración, claves, operaciones) están en `/opt/valorize-bot` y **no se borran al actualizar**.

@@ -766,3 +766,52 @@ def test_no_arranca_abierto_a_internet_sin_contraseña(tmp_path, monkeypatch):
     monkeypatch.setattr(C, "ENV_FILE", tmp_path / ".env")
     (tmp_path / ".env").write_text("PANEL_HOSTS=bot.example.com\n")
     assert auth.unsafe_config()
+
+
+# ---------- avisos por Telegram ----------
+class _FakeTelegram:
+    def __init__(self, updates=None):
+        self.updates, self.sent = updates or [], []
+
+    def post(self, url, data=None, timeout=None):
+        token, method = url.split("/bot", 1)[1].split("/")
+        class R:
+            def __init__(s, j): s._j = j
+            def json(s): return s._j
+        if not token.startswith("123456789:"):
+            return R({"ok": False, "error_code": 401, "description": "Unauthorized"})
+        if method == "getMe":
+            return R({"ok": True, "result": {"username": "mivalorize_bot"}})
+        if method == "getUpdates":
+            return R({"ok": True, "result": self.updates})
+        if method == "sendMessage":
+            self.sent.append((data["chat_id"], data["text"]))
+            return R({"ok": True, "result": {}})
+
+
+def test_telegram_conectar_desde_el_panel(tmp_path, monkeypatch):
+    import config as C
+    import telegram_setup as tg
+    monkeypatch.setattr(C, "ENV_FILE", tmp_path / ".env")
+    fake = _FakeTelegram()
+    monkeypatch.setattr(tg, "requests", type("M", (), {"post": fake.post, "RequestException": Exception}))
+    good = "123456789:" + "A" * 35
+    try:
+        tg.connect("999:" + "x" * 35)
+        assert False, "token inválido aceptado"
+    except tg.TelegramError as e:
+        assert "token" in str(e)
+    r = tg.connect(good)                                  # aún no le ha escrito nadie
+    assert r["need_message"] and r["link"] == "https://t.me/mivalorize_bot"
+    assert not tg.status()["configured"]
+    fake.updates = [{"message": {"chat": {"id": 555, "type": "private", "first_name": "Albert"}}}]
+    r = tg.connect("")                                    # reutiliza el token pendiente
+    assert r["configured"] and r["chat_id"] == "555" and r["name"] == "Albert"
+    assert fake.sent and fake.sent[0][0] == "555"
+    assert tg.saved() == (good, "555")
+    assert "TELEGRAM_PENDING_TOKEN" not in (tmp_path / ".env").read_text()
+    assert good not in str(tg.status())                   # nunca se devuelve completo
+    tg.test()
+    assert len(fake.sent) == 2
+    tg.remove()
+    assert not tg.status()["configured"]

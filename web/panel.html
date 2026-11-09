@@ -166,6 +166,8 @@ footer{color:var(--muted);font-size:12px;text-align:center;margin-top:24px}
 .lic.ok{color:#6fd1a5;border-color:#1f4d3d;background:#11251f}.lic.warn{color:#f3d48a;border-color:#5a4a20;background:#2a2414}
 .lic.bad{color:#ff9aa7;border-color:#4a2530;background:#211419}
 .ldialog{max-width:520px}
+.tgsteps{margin:0 0 12px;padding-left:20px;color:var(--text2);line-height:1.6}.tgsteps li{margin-bottom:6px}
+.tgsteps a{color:var(--accent)}.tgsteps code,.wbody code{background:#0d1119;border:1px solid var(--line2);border-radius:5px;padding:1px 5px;font-size:13px}
 .keyinp{font:15px var(--mono);letter-spacing:.5px;text-align:center;padding:12px}
 
 @media (max-width:1150px){.kpis{grid-template-columns:repeat(3,1fr)}.grid{grid-template-columns:1fr}.lower{grid-template-columns:1fr}}
@@ -185,6 +187,7 @@ footer{color:var(--muted);font-size:12px;text-align:center;margin-top:24px}
   <div class="spacer"></div>
   <span id="updated" class="muted hide-sm" style="font-size:12px"></span>
   <button class="lic" id="licBadge" style="display:none" onclick="openLic()"></button>
+  <button class="btn" onclick="openTg()" title="Avisos por Telegram">🔔<span class="hide-sm"> Avisos</span></button>
   <button class="btn" onclick="openWiz()">⚙ Configuración</button>
   <button id="btnStart" class="btn primary" onclick="act('start')">▶ Arrancar</button>
   <button id="btnStop" class="btn" onclick="confirmAct('stop')">■ Parar</button>
@@ -243,6 +246,12 @@ footer{color:var(--muted);font-size:12px;text-align:center;margin-top:24px}
   <div class="whead"><div><h3>🔑 Licencia de Valorize Bot</h3><p class="muted" id="lSub"></p></div>
     <button class="xbtn" onclick="closeLic()" title="Cerrar">✕</button></div>
   <div class="wbody" id="lBody" style="min-height:0"></div>
+</div></div>
+
+<div class="modal" id="tgm"><div class="wdialog ldialog">
+  <div class="whead"><div><h3>🔔 Avisos por Telegram</h3><p class="muted">Recibe en el móvil cada compra, venta y problema</p></div>
+    <button class="xbtn" onclick="closeTg()" title="Cerrar">✕</button></div>
+  <div class="wbody" id="tgBody" style="min-height:0"></div>
 </div></div>
 
 <div class="modal" id="wiz"><div class="wdialog">
@@ -535,6 +544,57 @@ async function licAct(what){
   catch(e){ renderLic(e.message); }
 }
 
+/* ---------- avisos por Telegram ---------- */
+const TG = {st:null, pending:null, busy:false};
+async function openTg(){ $('tgm').classList.add('show'); $('tgBody').innerHTML='<div class="empty"><span class="spin"></span>Cargando…</div>';
+  try{ TG.st = await get('/api/telegram'); }catch(e){ TG.st = {configured:false}; } TG.pending=null; renderTg(); }
+function closeTg(){ $('tgm').classList.remove('show'); }
+function renderTg(msg, ok){
+  const st = TG.st||{}, b = TG.busy;
+  const note = msg ? `<div class="note ${ok?'ok':'bad'}" style="margin:0 0 14px">${esc(msg)}</div>` : '';
+  if(st.configured){
+    $('tgBody').innerHTML = note+`<div class="sum"><span>Estado</span><span class="up">✓ Activados</span>
+      <span>Bot</span><span class="num">${esc(st.token_hint)}</span><span>Chat</span><span class="num">${esc(st.chat_id)}</span></div>
+      <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:18px">
+        <button class="btn" onclick="tgAct('test')" ${b?'disabled':''}>Enviar mensaje de prueba</button>
+        <button class="btn danger" onclick="tgAct('remove')" ${b?'disabled':''}>Desactivar</button></div>`;
+    return;
+  }
+  if(TG.pending){
+    const p = TG.pending;
+    $('tgBody').innerHTML = note+`<div class="note info" style="margin:0 0 14px">El token es correcto ✓. Falta un paso: escribe a tu bot para que sepa a quién avisar.</div>
+      <ol class="tgsteps"><li>Abre tu bot en Telegram: ${p.link?`<a href="${esc(p.link)}" target="_blank" rel="noopener"><b>@${esc(p.bot)}</b> ↗</a>`:'<b>@'+esc(p.bot)+'</b>'}</li>
+      <li>Pulsa <b>Iniciar</b> (o escríbele «hola»).</li><li>Vuelve aquí y pulsa <b>Ya le he escrito</b>.</li></ol>
+      <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:14px">
+        <button class="btn" onclick="TG.pending=null;renderTg()" ${b?'disabled':''}>Atrás</button>
+        <button class="btn primary" onclick="tgConnect('')" ${b?'disabled':''}>${b?'<span class="spin"></span>Comprobando…':'Ya le he escrito'}</button></div>`;
+    return;
+  }
+  $('tgBody').innerHTML = note+`<ol class="tgsteps">
+      <li>En Telegram, abre <a href="https://t.me/BotFather" target="_blank" rel="noopener"><b>@BotFather</b> ↗</a> (el oficial, con la marca azul) y pulsa <b>Iniciar</b>.</li>
+      <li>Escríbele <code>/newbot</code>. Te pedirá un nombre (p. ej. <i>Mi Valorize</i>) y un usuario que acabe en <i>bot</i> (p. ej. <i>mivalorize_bot</i>).</li>
+      <li>Te responderá con un <b>token</b> (algo como <code>123456789:AAH…</code>). Cópialo y pégalo aquí:</li></ol>
+    <input class="inp keyinp" id="tgToken" placeholder="123456789:AAH..." autocomplete="off" spellcheck="false">
+    <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:14px">
+      <button class="btn primary" onclick="tgConnect($('tgToken').value)" ${b?'disabled':''}>${b?'<span class="spin"></span>Conectando…':'Conectar'}</button></div>
+    <p class="muted" style="font-size:12px;margin-top:12px">🔒 El token se guarda solo en este servidor y no se vuelve a mostrar completo.</p>`;
+  setTimeout(()=>$('tgToken')&&$('tgToken').focus(), 50);
+}
+async function tgConnect(token){
+  TG.busy=true; renderTg();
+  try{ const r = await postJSON('/api/telegram/connect',{token:(token||'').trim()}); TG.busy=false;
+    if(r.need_message){ TG.pending=r; renderTg(token?null:'Todavía no veo ningún mensaje tuyo. Pulsa Iniciar en el chat del bot y vuelve a probar.', false); return; }
+    TG.st=r; TG.pending=null; renderTg('✓ Conectado. Te acabo de enviar un mensaje de prueba a Telegram.', true); }
+  catch(e){ TG.busy=false; renderTg(e.message, false); }
+}
+async function tgAct(what){
+  if(what==='remove' && !confirm('¿Desactivar los avisos por Telegram?')) return;
+  TG.busy=true; renderTg();
+  try{ const r = await postJSON('/api/telegram/'+what,{}); TG.busy=false;
+    if(what==='remove'){ TG.st=r; renderTg('Avisos desactivados.', true); } else renderTg('✓ Mensaje de prueba enviado.', true); }
+  catch(e){ TG.busy=false; renderTg(e.message, false); }
+}
+
 /* ---------- asistente de configuración ---------- */
 const W = {step:0, setup:null, info:null, d:null, markets:null, quote:null, search:'', test:null, saving:false};
 const POPULAR = ['BTC','ETH','SOL','XRP','BNB','ADA','DOGE','AVAX','LINK','DOT','LTC','TRX','TON','POL','ATOM','NEAR','UNI','XLM','BCH','SHIB'];
@@ -699,7 +759,7 @@ async function wGo(dir){
 }
 
 window.addEventListener('resize', ()=>{ drawChart(); if(S.status) drawEquity(S.status.equity_history); });
-document.addEventListener('keydown', e=>{ if(e.key==='Escape'){ closeModal(); closeLic(); } });
+document.addEventListener('keydown', e=>{ if(e.key==='Escape'){ closeModal(); closeLic(); closeTg(); } });
 (async()=>{ await refresh(); loadChart(); loadTables();
   try{ const st = await get('/api/setup'); if(!st.configured) openWiz(true); }catch(e){} })();
 setInterval(()=>{ refresh().then(()=>drawChart()); }, 5000);

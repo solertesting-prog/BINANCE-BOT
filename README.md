@@ -41,6 +41,7 @@ Valorize Bot es un bot de trading automático para el mercado spot (solo compras
 - Gráfico de velas con las medias, las compras y ventas del bot y las líneas de entrada y stop.
 - Capital, resultado, posiciones con su P&L y su stop, curva de capital, historial y registro en vivo.
 - Botones para arrancar, parar y cerrar posiciones.
+- **🔔 Avisos por Telegram** configurables desde el panel: pegas el token de tu bot, detecta tu chat solo y envía un mensaje de prueba.
 - Solo accesible desde tu ordenador y protegido contra peticiones de otras webs.
 
 **Herramientas**
@@ -71,11 +72,12 @@ Exchange, modo, claves y monedas se configuran desde el panel (**⚙ Configuraci
 | `bot.py` | Motor: brokers simulado y real, stops en el exchange, reconciliación y estado |
 | `panel.py` + `web/panel.html` | Servidor local y la interfaz del panel |
 | `setup_api.py` | Asistente: catálogo de exchanges, mercados, prueba de conexión y guardado |
+| `telegram_setup.py` | Conexión de los avisos por Telegram desde el panel |
 | `licensing.py` | Licencias con Lemon Squeezy (datos de tu tienda al principio del archivo) |
 | `compilar.bat`, `cliente/` | Compilación a `.exe` e instalador para clientes |
 | `backtest.py`, `report.py`, `optimize.py` | Backtest, informe HTML y optimización walk-forward |
 | `exchange.py` | Conexión con el exchange (ccxt), capacidades de cada uno y descarga de velas |
-| `tests/` | 37 tests sin conexión: estrategia, backtest, motor, asistente, licencias y acceso con contraseña (con exchanges y servidor de licencias simulados) y panel |
+| `tests/` | 38 tests sin conexión: estrategia, backtest, motor, asistente, licencias y acceso con contraseña (con exchanges y servidor de licencias simulados) y panel |
 | `auth.py`, `web/login.html` | Acceso con contraseña al panel (para usarlo por internet) |
 | `deploy/instalar-servidor.sh`, `deploy/generar_cloud_init.py`, `preparar-servidor.bat` | Instalación automática en un servidor (ver SERVIDOR.md) |
 | `deploy/valorize-bot.service` | Servicio systemd básico (alternativa manual) |

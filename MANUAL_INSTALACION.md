@@ -214,19 +214,14 @@ venv\Scripts\python optimize.py --days 1095
 
 Te llegará un mensaje cada vez que el bot compre o venda, un resumen diario y cualquier aviso importante.
 
-1. En Telegram, busca **@BotFather** (con la marca azul de verificado) y escríbele `/newbot`.
-2. Ponle un **nombre** (por ejemplo `Mi trading bot`) y un **usuario** que termine en `bot` (por ejemplo `albert_trading_bot`).
-3. Te dará un **token**, algo como `7123456789:AAH-xxxxxxxx`. Cópialo y no lo compartas.
-4. Busca tu bot nuevo en Telegram, ábrelo y pulsa **Iniciar**.
-5. En el navegador abre esta dirección **cambiando `TU_TOKEN` por tu token** (sin espacios):
-   `https://api.telegram.org/botTU_TOKEN/getUpdates`
-6. Busca `"chat":{"id":` seguido de un número: ese número es tu **chat_id**. (Si sale `"result":[]`, escribe algo a tu bot y recarga.)
-7. Abre el archivo `.env` de la carpeta del bot con el Bloc de notas (clic derecho → *Abrir con* → *Bloc de notas*) y rellena:
-   ```
-   TELEGRAM_TOKEN=7123456789:AAH-xxxxxxxx
-   TELEGRAM_CHAT_ID=123456789
-   ```
-8. Guarda (`Ctrl + G` o `Ctrl + S`). En el panel pulsa ⏻ y vuelve a abrirlo desde el icono. Te llegará "🤖 Bot iniciado" cuando lo arranques.
+1. En el panel, pulsa **🔔 Avisos** (arriba, junto a ⚙ Configuración).
+2. En Telegram, busca **@BotFather** (con la marca azul de verificado), pulsa **Iniciar** y escríbele `/newbot`.
+3. Ponle un **nombre** (por ejemplo `Mi Valorize`) y un **usuario** que termine en `bot` (por ejemplo `albert_valorize_bot`).
+4. Te dará un **token**, algo como `7123456789:AAH-xxxxxxxx`. Cópialo (no lo compartas con nadie), pégalo en el panel y pulsa **Conectar**.
+5. El panel te enseñará el enlace a tu bot nuevo: ábrelo, pulsa **Iniciar** y vuelve al panel para pulsar **Ya le he escrito**.
+6. Te llegará "✅ Valorize Bot conectado" a Telegram. Listo: funciona al momento, sin reiniciar.
+
+> Desde la misma ventana puedes enviar un mensaje de prueba o desactivar los avisos.
 
 ---
 
