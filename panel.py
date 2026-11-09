@@ -129,7 +129,7 @@ class PanelApp:
             return int(times[max(0, np.searchsorted(times, t, side="right") - 1)])
 
         markers = []
-        for tr in bot.read_trades():
+        for tr in bot.read_trades(self.engine.files.trades):
             if tr["par"] != sym:
                 continue
             pnl = float(tr["pnl_pct"] or 0)

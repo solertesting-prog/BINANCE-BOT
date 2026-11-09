@@ -70,15 +70,18 @@ def set_telegram(token: str, chat_id: str):
     _TELEGRAM = (token or "", chat_id or "")
 
 
-def notify(msg: str, cfg=CONFIG):
-    log.info(msg)
-    token, chat = _TELEGRAM if _TELEGRAM is not None else (cfg.telegram_token, cfg.telegram_chat_id)
+def notify(msg: str, cfg=CONFIG, logger=None, own_telegram: bool = False):
+    """Registra el mensaje y lo envía por Telegram. `own_telegram`: usar siempre el Telegram de
+    `cfg` (plataforma multiusuario: cada usuario el suyo), sin el ajuste global del panel."""
+    (logger or log).info(msg)
+    token, chat = (_TELEGRAM if _TELEGRAM is not None and not own_telegram
+                   else (cfg.telegram_token, cfg.telegram_chat_id))
     if token and chat:
         try:
             requests.post(f"https://api.telegram.org/bot{token}/sendMessage",
                           data={"chat_id": chat, "text": msg}, timeout=10)
         except Exception as e:
-            log.warning(f"No se pudo enviar a Telegram: {e}")
+            (logger or log).warning(f"No se pudo enviar a Telegram: {e}")
 
 
 def _retryable_errors() -> tuple:
@@ -110,11 +113,12 @@ def new_state(cfg) -> dict:
             "equity_history": []}
 
 
-def load_state(cfg=CONFIG) -> dict:
+def load_state(cfg=CONFIG, path: Path = None) -> dict:
+    path = path or STATE_FILE
     s = new_state(cfg)
-    if not STATE_FILE.exists():
+    if not path.exists():
         return s
-    old = json.loads(STATE_FILE.read_text(encoding="utf-8"))
+    old = json.loads(path.read_text(encoding="utf-8"))
     if "positions" in old:
         s.update(old)
         return s
@@ -133,20 +137,22 @@ def load_state(cfg=CONFIG) -> dict:
     return s
 
 
-def save_state(s: dict):
-    tmp = STATE_FILE.with_suffix(".tmp")
+def save_state(s: dict, path: Path = None):
+    path = path or STATE_FILE
+    tmp = path.with_suffix(".tmp")
     tmp.write_text(json.dumps(s, indent=2), encoding="utf-8")
-    tmp.replace(STATE_FILE)                      # escritura atómica: nunca queda a medias
+    tmp.replace(path)                      # escritura atómica: nunca queda a medias
 
 
-def read_trades() -> list:
-    if not TRADES_FILE.exists():
+def read_trades(path: Path = None) -> list:
+    path = path or TRADES_FILE
+    if not path.exists():
         return []
-    with TRADES_FILE.open(encoding="utf-8", newline="") as f:
+    with path.open(encoding="utf-8", newline="") as f:
         return list(csv.DictReader(f))
 
 
-def export_trades_csv() -> bytes:
+def export_trades_csv(path: Path = None) -> bytes:
     """Historial listo para abrir con Excel en español (punto y coma, coma decimal, UTF-8 con BOM)."""
     import io
     cols = [("entrada", "Entrada (UTC)"), ("salida", "Salida (UTC)"), ("par", "Par"),
@@ -157,7 +163,7 @@ def export_trades_csv() -> bytes:
     out = io.StringIO()
     w = csv.writer(out, delimiter=";", lineterminator="\r\n")
     w.writerow([label for _, label in cols])
-    for t in read_trades():
+    for t in read_trades(path):
         try:
             qty, pin, pout = float(t["cantidad"]), float(t["precio_entrada"]), float(t["precio_salida"])
             t = {**t, "importe_entrada": round(qty * pin, 2), "importe_salida": round(qty * pout, 2),
@@ -169,9 +175,10 @@ def export_trades_csv() -> bytes:
     return ("\ufeff" + out.getvalue()).encode("utf-8")
 
 
-def append_trade(row: dict):
-    new = not TRADES_FILE.exists()
-    with TRADES_FILE.open("a", newline="", encoding="utf-8") as f:
+def append_trade(row: dict, path: Path = None):
+    path = path or TRADES_FILE
+    new = not path.exists()
+    with path.open("a", newline="", encoding="utf-8") as f:
         w = csv.DictWriter(f, fieldnames=TRADE_FIELDS)
         if new:
             w.writeheader()
@@ -339,12 +346,28 @@ class LiveBroker(PaperBroker):
 
 
 # ---------- motor ----------
+class Files:
+    """Dónde guarda un motor su estado, operaciones y registro. Por defecto, los archivos de
+    siempre (un solo usuario); la plataforma multiusuario da a cada usuario su carpeta."""
+    def __init__(self, folder: Path = None, logger=None):
+        self.folder, self.logger = folder, logger
+
+    def _p(self, name, default):
+        return self.folder / name if self.folder else default
+
+    state = property(lambda s: s._p("state.json", STATE_FILE))
+    trades = property(lambda s: s._p("trades_log.csv", TRADES_FILE))
+    log_file = property(lambda s: s._p("bot.log", LOG_FILE))
+    log = property(lambda s: s.logger or log)
+
+
 class Engine:
-    def __init__(self, cfg=CONFIG, ex=None):
+    def __init__(self, cfg=CONFIG, ex=None, files: Files = None):
         self.cfg = cfg
+        self.files = files or Files()
         self.ex = ex
         self.broker = None
-        self.state = load_state(cfg)
+        self.state = load_state(cfg, self.files.state)
         self.lock = threading.RLock()
         self.thread = None
         self._stop_event = threading.Event()
@@ -352,6 +375,16 @@ class Engine:
         self._market_cache = {}
         self.last_cycle_ts, self.started_ts = None, None
         self.last_error, self.last_cycle, self.last_equity = None, None, None
+
+    @property
+    def log(self):
+        return self.files.log
+
+    def notify(self, msg, cfg=None):
+        notify(msg, cfg or self.cfg, self.files.logger, own_telegram=self.files.folder is not None)
+
+    def _append_trade(self, row):
+        append_trade(row, self.files.trades)
 
     # --- conexión ---
     def connect(self):
@@ -385,22 +418,22 @@ class Engine:
         fill = price if already_sold else self.broker.sell(sym, pos, price)
         pnl_pct = (fill / pos["entry"]) * (1 - self.cfg.fee) ** 2 - 1
         pnl_usdt = pos["qty"] * fill * (1 - self.cfg.fee) - pos.get("spent", pos["qty"] * pos["entry"])
-        append_trade({"entrada": pos.get("entry_time"), "salida": now_iso(), "par": sym,
+        self._append_trade({"entrada": pos.get("entry_time"), "salida": now_iso(), "par": sym,
                       "precio_entrada": round(pos["entry"], 8), "precio_salida": round(fill, 8),
                       "cantidad": pos["qty"], "motivo": reason, "pnl_pct": round(pnl_pct, 5),
                       "pnl_usdt": round(pnl_usdt, 2), "modo": self.cfg.mode})
-        notify(f"🔴 VENTA {sym} {pos['qty']:.6f} a {fill:.2f} | {reason} | {pnl_pct:+.2%} "
+        self.notify(f"🔴 VENTA {sym} {pos['qty']:.6f} a {fill:.2f} | {reason} | {pnl_pct:+.2%} "
                f"({pnl_usdt:+.2f} {self.cfg.quote}) [{self.cfg.mode}]", self.cfg)
 
     def _open(self, sym, price, atr_value):
         cfg, b, s = self.cfg, self.broker, self.state
         if len(s["positions"]) >= cfg.max_open_positions:
-            log.info(f"Señal de compra en {sym} ignorada: ya hay {len(s['positions'])} posiciones abiertas")
+            self.log.info(f"Señal de compra en {sym} ignorada: ya hay {len(s['positions'])} posiciones abiertas")
             return
         stop0 = initial_stop(price, atr_value, cfg)
         spend = position_spend(b.equity(self.prices), b.cash(), price, stop0, cfg)
         if spend < self.min_cost(sym):
-            notify(f"Saldo insuficiente para comprar {sym} ({spend:.2f} < mínimo {self.min_cost(sym):g})", cfg)
+            self.notify(f"Saldo insuficiente para comprar {sym} ({spend:.2f} < mínimo {self.min_cost(sym):g})", cfg)
             return
         qty, fill = b.buy(sym, spend, price)
         pos = {"qty": qty, "entry": fill, "peak": fill, "atr": atr_value, "entry_time": now_iso(),
@@ -408,7 +441,7 @@ class Engine:
         s["positions"][sym] = pos
         stop, _, _ = exit_levels(fill, fill, atr_value, cfg)
         pos["stop_order"] = b.place_stop(sym, qty, stop)
-        notify(f"🟢 COMPRA {sym} {qty:.6f} a {fill:.2f} ({spend:.2f} {cfg.quote}) | stop {stop:.2f} "
+        self.notify(f"🟢 COMPRA {sym} {qty:.6f} a {fill:.2f} ({spend:.2f} {cfg.quote}) | stop {stop:.2f} "
                f"[{cfg.mode}]" if stop else f"🟢 COMPRA {sym} {qty:.6f} a {fill:.2f} [{cfg.mode}]", cfg)
 
     def _manage(self, sym, price):
@@ -446,7 +479,7 @@ class Engine:
         self.frames[sym] = sig_df
         sig = int(sig_df["signal"].iloc[-1])
         self.signals[sym] = sig
-        log.info(f"{sym} vela {df.index[-1]:%Y-%m-%d %H:%M} cerrada | precio {price:.2f} | señal {sig}")
+        self.log.info(f"{sym} vela {df.index[-1]:%Y-%m-%d %H:%M} cerrada | precio {price:.2f} | señal {sig}")
 
         if sig == 1 and not pos and not exited:
             atr_v = sig_df["atr"].iloc[-1]
@@ -465,12 +498,12 @@ class Engine:
         try:
             rdf = xch.fetch_closed_candles(self.ex, ref, self.cfg.timeframe, warmup_candles(self.cfg))
         except Exception as e:                 # sin datos de la referencia: mejor no comprar
-            log.warning(f"No se pudieron leer las velas de {ref} para el filtro de mercado: {e}")
+            self.log.warning(f"No se pudieron leer las velas de {ref} para el filtro de mercado: {e}")
             return pd.Series(dtype=bool)
         ok = market_ok(rdf, self.cfg)
         self._market_cache[ref] = (int(rdf["ts"].iloc[-1]), ok)
         if not bool(ok.iloc[-1]):
-            log.info(f"Filtro de mercado: {ref} está bajo su media de {self.cfg.market_filter_ma} velas; "
+            self.log.info(f"Filtro de mercado: {ref} está bajo su media de {self.cfg.market_filter_ma} velas; "
                      f"no se abren compras en otras monedas.")
         return ok
 
@@ -485,7 +518,7 @@ class Engine:
             for sym in list(s["positions"]):
                 self._close(sym, self.prices[sym], "interruptor de drawdown")
             s["halted"], s["running"] = True, False
-            notify(f"⛔ Capital {eq:.2f} por debajo del límite de seguridad. Bot detenido. "
+            self.notify(f"⛔ Capital {eq:.2f} por debajo del límite de seguridad. Bot detenido. "
                    f"Revisa qué ha pasado antes de reactivarlo.", cfg)
             return
 
@@ -508,7 +541,7 @@ class Engine:
             return
         s["last_summary"] = today
         pos = ", ".join(f"{sym} {self.prices[sym] / p['entry'] - 1:+.2%}" for sym, p in s["positions"].items())
-        notify(f"📊 Resumen diario | capital {eq:.2f} ({eq / s['start_equity'] - 1:+.2%} desde el inicio) | "
+        self.notify(f"📊 Resumen diario | capital {eq:.2f} ({eq / s['start_equity'] - 1:+.2%} desde el inicio) | "
                f"{'posiciones: ' + pos if pos else 'sin posiciones'}", self.cfg)
 
     def reconcile(self):
@@ -523,11 +556,11 @@ class Engine:
             elif b.base_total(sym) < pos["qty"] * 0.5:
                 price = float(retry(self.ex.fetch_ticker, sym)["last"])
                 s["positions"].pop(sym)
-                append_trade({"entrada": pos.get("entry_time"), "salida": now_iso(), "par": sym,
+                self._append_trade({"entrada": pos.get("entry_time"), "salida": now_iso(), "par": sym,
                               "precio_entrada": pos["entry"], "precio_salida": price, "cantidad": pos["qty"],
                               "motivo": "cerrada fuera del bot", "pnl_pct": round(price / pos["entry"] - 1, 5),
                               "pnl_usdt": round(pos["qty"] * (price - pos["entry"]), 2), "modo": self.cfg.mode})
-                notify(f"⚠️ La posición de {sym} ya no está en la cuenta (¿vendida a mano?). "
+                self.notify(f"⚠️ La posición de {sym} ya no está en la cuenta (¿vendida a mano?). "
                        f"Se da por cerrada.", self.cfg)
             elif self.cfg.exchange_stops and not pos.get("stop_order"):
                 stop, _, _ = exit_levels(pos["entry"], pos["peak"], pos["atr"], self.cfg)
@@ -548,9 +581,9 @@ class Engine:
                 self.connect()
             self.reconcile()
             self.state["running"] = True
-            save_state(self.state)
+            save_state(self.state, self.files.state)
             self._stop_event = threading.Event()
-        notify(f"🤖 Valorize Bot iniciado | {getattr(self.ex, 'name', self.cfg.exchange)} | {', '.join(self.cfg.symbols)} {self.cfg.timeframe} | {describe(self.cfg)} | "
+        self.notify(f"🤖 Valorize Bot iniciado | {getattr(self.ex, 'name', self.cfg.exchange)} | {', '.join(self.cfg.symbols)} {self.cfg.timeframe} | {describe(self.cfg)} | "
                f"modo {self.cfg.mode}{' (testnet)' if self.cfg.testnet else ''}", self.cfg)
         self.started_ts = time.time()
         if background:
@@ -567,17 +600,17 @@ class Engine:
                     self.step()
                 except Exception as e:      # errores de red, etc.: se registra y se reintenta
                     self.last_error = f"{type(e).__name__}: {e}"
-                    log.exception(f"Error en el ciclo: {e}")
-                save_state(self.state)
+                    self.log.exception(f"Error en el ciclo: {e}")
+                save_state(self.state, self.files.state)
             self._stop_event.wait(self.cfg.poll_seconds)
 
     def stop(self, notify_user: bool = True):
         self._stop_event.set()
         with self.lock:
             self.state["running"] = False
-            save_state(self.state)
+            save_state(self.state, self.files.state)
         if notify_user:
-            notify("■ Valorize Bot parado.", self.cfg)
+            self.notify("■ Valorize Bot parado.", self.cfg)
 
     def close_position(self, sym):
         with self.lock:
@@ -587,14 +620,14 @@ class Engine:
                 self.connect()
             price = float(retry(self.ex.fetch_ticker, sym)["last"])
             self._close(sym, price, "cierre manual")
-            save_state(self.state)
+            save_state(self.state, self.files.state)
 
     def resume_after_halt(self):
         with self.lock:
             self.state["halted"] = False
             self.state["start_equity"] = None      # el nuevo punto de partida es el capital actual
-            save_state(self.state)
-        notify("Interruptor de seguridad reactivado manualmente.", self.cfg)
+            save_state(self.state, self.files.state)
+        self.notify("Interruptor de seguridad reactivado manualmente.", self.cfg)
 
     # --- información para el panel ---
     def refresh_prices(self):
@@ -622,7 +655,7 @@ class Engine:
             equity = cash + sum(x["qty"] * x["price"] for x in positions)
         else:
             equity = self.last_equity or (s["equity_history"][-1][1] if s["equity_history"] else None)
-        trades = read_trades()
+        trades = read_trades(self.files.trades)
         pnl_closed = sum(float(t["pnl_usdt"] or 0) for t in trades)
         wins = sum(1 for t in trades if float(t["pnl_pct"] or 0) > 0)
         start = s["start_equity"] or (cfg.paper_balance if cfg.mode == "paper" else None)

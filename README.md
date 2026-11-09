@@ -41,6 +41,11 @@ Valorize Bot es un bot de trading automático para el mercado spot (solo compras
 - **Botón ⬆ Actualizar** en el panel: instala la última versión de GitHub y se reinicia solo.
 - **Aviso de caída** con healthchecks.io (latido cada 5 minutos) y **copia de seguridad diaria** (14 días).
 
+**Plataforma multiusuario (beta privada)** ([PLATAFORMA.md](PLATAFORMA.md))
+- En `https://app.<tu-dirección>`: registro solo por invitación, cada usuario con su panel y su propio bot **simulado**.
+- Panel de administración: invitar, desactivar usuarios y enlaces para restablecer la contraseña.
+- Verificación en dos pasos y avisos por Telegram por usuario; datos de mercado compartidos con caché.
+
 **Panel de control** (`http://127.0.0.1:8765`)
 - Gráfico de velas con las medias, las compras y ventas del bot y las líneas de entrada y stop.
 - Capital, resultado, posiciones con su P&L y su stop, curva de capital, historial y registro en vivo.
@@ -79,13 +84,14 @@ Exchange, modo, claves y monedas se configuran desde el panel (**⚙ Configuraci
 | `panel.py` + `web/panel.html` | Servidor local y la interfaz del panel |
 | `setup_api.py` | Asistente: catálogo de exchanges, mercados, prueba de conexión y guardado |
 | `telegram_setup.py`, `telegram_bot.py` | Conexión de los avisos por Telegram desde el panel y comandos del chat |
+| `plataforma.py`, `plataforma_db.py`, `web/plataforma_*.html` | Plataforma multiusuario: cuentas, invitaciones, un bot por usuario y administración |
 | `maintenance.py` | Copias de seguridad diarias y latido (aviso de caída) |
 | `updater.py` | Actualización desde el panel en el servidor |
 | `licensing.py` | Licencias con Lemon Squeezy (datos de tu tienda al principio del archivo) |
 | `compilar.bat`, `cliente/` | Compilación a `.exe` e instalador para clientes |
 | `backtest.py`, `report.py`, `optimize.py` | Backtest, informe HTML y optimización walk-forward |
 | `exchange.py` | Conexión con el exchange (ccxt), capacidades de cada uno y descarga de velas |
-| `tests/` | 46 tests sin conexión: estrategia, backtest, motor, asistente, licencias y acceso con contraseña (con exchanges y servidor de licencias simulados) y panel |
+| `tests/` | 48 tests sin conexión: estrategia, backtest, motor, asistente, licencias y acceso con contraseña (con exchanges y servidor de licencias simulados) y panel |
 | `auth.py`, `web/login.html` | Acceso con contraseña al panel (para usarlo por internet) |
 | `deploy/instalar-servidor.sh`, `deploy/generar_cloud_init.py`, `preparar-servidor.bat` | Instalación automática en un servidor (ver SERVIDOR.md) |
 | `deploy/valorize-bot.service` | Servicio systemd básico (alternativa manual) |

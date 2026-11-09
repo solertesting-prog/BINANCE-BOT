@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>Valorize Bot · Acceso</title>
+<link rel="icon" href="/favicon.ico">
+<style>
+:root{--bg:#0b0e14;--panel:#121722;--line:#232b3b;--line2:#2c3547;--text:#e7eaf0;--text2:#a3abbb;--muted:#6c7589;--accent:#f5b83d}
+*{box-sizing:border-box}
+html,body{margin:0;min-height:100%;background:var(--bg);color:var(--text);font:15px/1.45 "Segoe UI",system-ui,-apple-system,Roboto,sans-serif}
+body{display:grid;place-items:center;min-height:100vh;padding:16px;background:radial-gradient(800px 400px at 50% -10%,rgba(245,184,61,.08),transparent),var(--bg)}
+.card{width:100%;max-width:400px;background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:28px 26px;box-shadow:0 24px 60px rgba(0,0,0,.45)}
+.brand{display:flex;align-items:center;gap:10px;font-weight:650;font-size:18px;margin-bottom:6px}
+.logo{width:34px;height:34px;border-radius:9px;background:linear-gradient(135deg,#f5b83d,#e08a1e);display:grid;place-items:center}
+.sub{color:var(--text2);font-size:13.5px;margin:0 0 20px}
+label{display:block;font-size:13px;color:var(--text2);font-weight:600;margin:12px 0 6px}
+input{width:100%;background:#0d1119;border:1px solid var(--line2);color:var(--text);border-radius:9px;padding:11px 12px;font-size:15px;font-family:inherit}
+input:focus{outline:none;border-color:var(--accent)}
+button{width:100%;margin-top:18px;border:0;background:var(--accent);color:#1a1305;font-family:inherit;font-weight:600;font-size:15px;padding:11px;border-radius:9px;cursor:pointer}
+button:disabled{opacity:.6;cursor:wait}
+.err{min-height:20px;margin-top:12px;font-size:13px;color:#ff9aa7}
+.ok{margin-top:12px;font-size:13.5px;color:#9fe2c4}
+.foot{margin-top:18px;font-size:12px;color:var(--muted);text-align:center}
+.hide{display:none}
+</style>
+</head>
+<body>
+<form class="card" id="f" novalidate>
+  <div class="brand"><div class="logo"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#1a1305" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17l6-6 4 4 8-8"/><path d="M15 7h6v6"/></svg></div>Valorize Bot</div>
+  <p class="sub" id="sub">Inicia sesión en tu cuenta.</p>
+  <div id="emailBox"><label for="email">Email</label><input id="email" type="email" autocomplete="email" required></div>
+  <label for="pw" id="pwLabel">Contraseña</label>
+  <input id="pw" type="password" autocomplete="current-password" required>
+  <div id="pw2Box" class="hide"><label for="pw2">Repite la contraseña</label><input id="pw2" type="password" autocomplete="new-password"></div>
+  <div id="codeBox" class="hide"><label for="code">Código de verificación</label>
+    <input id="code" inputmode="numeric" autocomplete="one-time-code" maxlength="7" placeholder="123 456"></div>
+  <button id="b" type="submit">Entrar</button>
+  <div class="err" id="err" role="alert"></div>
+  <div class="foot" id="foot">🔒 Conexión cifrada · beta privada por invitación</div>
+</form>
+<script>
+const $ = id => document.getElementById(id);
+const P = new URLSearchParams(location.search);
+const MODE = location.pathname === '/registro' ? 'register' : location.pathname === '/restablecer' ? 'reset' : 'login';
+if(MODE === 'register'){
+  $('sub').textContent = 'Crea tu cuenta. Tu bot empezará en modo simulado: dinero ficticio con precios reales.';
+  $('pwLabel').textContent = 'Contraseña (mínimo 10 caracteres)'; $('pw').autocomplete = 'new-password';
+  $('pw2Box').classList.remove('hide'); $('b').textContent = 'Crear cuenta';
+  if(!P.get('invitacion')){ $('err').textContent = 'Para registrarte necesitas el enlace de invitación completo.'; $('b').disabled = true; }
+} else if(MODE === 'reset'){
+  $('sub').textContent = 'Elige una contraseña nueva.'; $('emailBox').classList.add('hide');
+  $('pwLabel').textContent = 'Contraseña nueva (mínimo 10 caracteres)'; $('pw').autocomplete = 'new-password';
+  $('pw2Box').classList.remove('hide'); $('b').textContent = 'Guardar contraseña';
+}
+setTimeout(()=> (MODE === 'reset' ? $('pw') : $('email')).focus(), 30);
+
+$('f').addEventListener('submit', async ev => {
+  ev.preventDefault(); const b = $('b'), err = $('err'); err.textContent = '';
+  if(MODE !== 'login' && $('pw').value !== $('pw2').value){ err.textContent = 'Las contraseñas no coinciden.'; return; }
+  const body = MODE === 'login' ? {email:$('email').value, password:$('pw').value, code:$('code').value}
+             : MODE === 'register' ? {invite:P.get('invitacion'), email:$('email').value, password:$('pw').value}
+             : {token:P.get('codigo'), password:$('pw').value};
+  b.disabled = true;
+  try{
+    const r = await fetch({login:'/api/login', register:'/api/register', reset:'/api/reset'}[MODE],
+      {method:'POST', headers:{'X-Panel':'1','Content-Type':'application/json'}, body:JSON.stringify(body)});
+    const j = await r.json().catch(()=>({}));
+    if(r.ok && j.ok){
+      if(MODE === 'reset'){ $('f').innerHTML = '<div class="brand">✓ Contraseña cambiada</div><p class="ok">Ya puedes <a href="/login" style="color:var(--accent)">iniciar sesión</a>. Si tenías la verificación en dos pasos, se ha desactivado: vuelve a activarla desde 🔒.</p>'; return; }
+      location.href = '/'; return;
+    }
+    if(j.need_code){ $('codeBox').classList.remove('hide'); $('code').focus(); b.disabled = false; return; }
+    err.textContent = j.error || 'No se pudo completar.';
+  }catch(e){ err.textContent = 'Sin conexión con el servidor.'; }
+  b.disabled = false;
+});
+</script>
+</body>
+</html>

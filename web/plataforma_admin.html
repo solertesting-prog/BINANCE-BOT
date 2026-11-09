@@ -1,0 +1,118 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>Valorize Bot · Usuarios</title>
+<link rel="icon" href="/favicon.ico">
+<style>
+:root{--bg:#0b0e14;--panel:#121722;--line:#232b3b;--line2:#2c3547;--text:#e7eaf0;--text2:#a3abbb;--muted:#6c7589;--accent:#f5b83d;--up:#2ebd85;--down:#f6465d}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--text);font:14px/1.45 "Segoe UI",system-ui,-apple-system,Roboto,sans-serif}
+header{display:flex;align-items:center;gap:12px;padding:14px 24px;border-bottom:1px solid var(--line);flex-wrap:wrap}
+.brand{display:flex;align-items:center;gap:10px;font-weight:650;font-size:16px}
+.logo{width:30px;height:30px;border-radius:8px;background:linear-gradient(135deg,#f5b83d,#e08a1e);display:grid;place-items:center}
+.spacer{flex:1}
+main{max-width:1100px;margin:0 auto;padding:22px 24px}
+.btn{background:#161c29;border:1px solid var(--line2);color:var(--text);border-radius:9px;padding:8px 13px;font:inherit;font-weight:600;cursor:pointer;text-decoration:none;white-space:nowrap}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:#1a1305}
+.btn.sm{padding:5px 9px;font-size:12.5px}.btn.danger{color:#ffb3bd;border-color:#4a2530}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:14px;margin-bottom:18px}
+.hd{display:flex;align-items:center;gap:10px;padding:14px 18px;border-bottom:1px solid var(--line);flex-wrap:wrap}
+h2{font-size:15px;margin:0}
+.bd{padding:16px 18px}
+.muted{color:var(--muted)}
+table{width:100%;border-collapse:collapse}
+th,td{text-align:left;padding:10px 12px;border-bottom:1px solid var(--line);white-space:nowrap}
+th{font-size:12px;color:var(--muted);font-weight:600}
+.tw{overflow-x:auto}
+.tag{display:inline-block;font-size:11.5px;padding:2px 8px;border-radius:99px;border:1px solid var(--line2);color:var(--text2)}
+.tag.g{color:#9fe2c4;border-color:#1f4d3d}.tag.r{color:#ffb3bd;border-color:#4a2530}.tag.a{color:var(--accent);border-color:#6b5420}
+input,select{background:#0d1119;border:1px solid var(--line2);color:var(--text);border-radius:9px;padding:8px 10px;font:inherit}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.link{margin-top:12px;padding:10px 12px;background:#0d1119;border:1px solid var(--line2);border-radius:9px;word-break:break-all;font-family:ui-monospace,Consolas,monospace;font-size:13px;user-select:all}
+.note{margin-top:10px;font-size:12.5px;color:var(--text2)}
+.err{color:#ff9aa7;margin-top:10px}
+</style>
+</head>
+<body>
+<header>
+  <div class="brand"><div class="logo"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#1a1305" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17l6-6 4 4 8-8"/><path d="M15 7h6v6"/></svg></div>Valorize Bot · Usuarios</div>
+  <div class="spacer"></div>
+  <a class="btn" href="/">← Mi panel</a>
+</header>
+<main>
+  <div class="card">
+    <div class="hd"><h2>Invitar a alguien</h2><span class="muted" id="cap"></span></div>
+    <div class="bd">
+      <div class="row">
+        <input id="note" placeholder="Nota (p. ej. nombre de la persona)" maxlength="100" style="flex:1;min-width:200px">
+        <select id="role"><option value="user">Usuario</option><option value="admin">Administrador</option></select>
+        <button class="btn primary" onclick="invite()">Crear enlace de invitación</button>
+      </div>
+      <div id="inviteOut"></div>
+      <p class="note">El enlace sirve para <b>una sola persona</b> y caduca en 7 días. Envíaselo por el canal que prefieras: al abrirlo, elige su email y contraseña.</p>
+    </div>
+  </div>
+  <div class="card">
+    <div class="hd"><h2>Usuarios</h2><span class="muted" id="count"></span><div class="spacer"></div><button class="btn sm" onclick="load()">↻ Actualizar</button></div>
+    <div class="tw"><table><thead><tr><th>Email</th><th>Rol</th><th>Estado</th><th>Bot</th><th>Capital</th><th>Posiciones</th><th>Último acceso</th><th></th></tr></thead><tbody id="users"></tbody></table></div>
+    <div class="bd" id="resetOut" style="display:none"></div>
+  </div>
+  <div class="card">
+    <div class="hd"><h2>Invitaciones recientes</h2></div>
+    <div class="tw"><table><thead><tr><th>Creada</th><th>Rol</th><th>Nota</th><th>Estado</th></tr></thead><tbody id="invites"></tbody></table></div>
+  </div>
+</main>
+<script>
+const $ = id => document.getElementById(id);
+const esc = s => String(s??'').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const fdate = t => t ? new Date(t*1000).toLocaleString('es-ES',{dateStyle:'short',timeStyle:'short'}) : '—';
+const nf = v => v==null ? '—' : Number(v).toLocaleString('es-ES',{minimumFractionDigits:2,maximumFractionDigits:2});
+async function api(path, body){
+  const r = await fetch(path, body ? {method:'POST', headers:{'X-Panel':'1','Content-Type':'application/json'}, body:JSON.stringify(body)} : {cache:'no-store'});
+  if(r.status === 401){ location.href = '/login'; throw new Error('Inicia sesión'); }
+  const j = await r.json().catch(()=>({})); if(!r.ok || j.ok === false) throw new Error(j.error || 'Error '+r.status); return j;
+}
+let USERS = {}, LINK = '';
+async function load(){
+  let d; try{ d = await api('/api/admin/users'); }catch(e){ $('users').innerHTML = `<tr><td colspan="8" class="err">${esc(e.message)}</td></tr>`; return; }
+  USERS = Object.fromEntries(d.users.map(u=>[u.id,u.email]));
+  $('count').textContent = `${d.users.length} de ${d.max_users} plazas`;
+  $('cap').textContent = d.users.length >= d.max_users ? '· la beta está completa' : '';
+  $('users').innerHTML = d.users.map(u => `<tr>
+    <td>${esc(u.email)}${u.totp?' <span title="Verificación en dos pasos">🔒</span>':''}${u.telegram?' <span title="Avisos por Telegram">🔔</span>':''}</td>
+    <td>${u.role==='admin'?'<span class="tag a">Admin</span>':'<span class="tag">Usuario</span>'}</td>
+    <td>${u.status==='active'?'<span class="tag g">Activo</span>':'<span class="tag r">Desactivado</span>'}</td>
+    <td>${u.running?'🟢 En marcha':'⏸ Parado'}${u.error?` <span title="${esc(u.error)}">⚠️</span>`:''}</td>
+    <td>${nf(u.equity)}</td><td>${u.symbols?`${u.positions} abiertas · ${u.symbols} moneda${u.symbols>1?'s':''}`:'—'}</td>
+    <td>${fdate(u.last_login)}</td>
+    <td style="text-align:right"><button class="btn sm" onclick="resetPw(${u.id})">Restablecer contraseña</button>
+      ${u.status==='active'?`<button class="btn sm danger" onclick="setStatus(${u.id},'disabled')">Desactivar</button>`
+                           :`<button class="btn sm" onclick="setStatus(${u.id},'active')">Activar</button>`}</td></tr>`).join('');
+  $('invites').innerHTML = d.invites.length ? d.invites.map(i => `<tr><td>${fdate(i.created)}</td><td>${i.role==='admin'?'Admin':'Usuario'}</td>
+    <td>${esc(i.note)||'<span class="muted">—</span>'}</td>
+    <td>${i.used_by?'✓ Usada'+(i.email?' por '+esc(i.email):''):i.expires*1000<Date.now()?'<span class="muted">Caducada</span>':'Pendiente'}</td></tr>`).join('')
+    : '<tr><td colspan="4" class="muted">Aún no has creado ninguna.</td></tr>';
+}
+async function invite(){
+  try{ const r = await api('/api/admin/invite', {role:$('role').value, note:$('note').value}); LINK = r.link;
+    $('inviteOut').innerHTML = `<div class="link">${esc(r.link)}</div><div class="row" style="margin-top:8px"><button class="btn sm" onclick="navigator.clipboard.writeText(LINK).then(()=>this.textContent='✓ Copiado')">Copiar enlace</button></div>`;
+    $('note').value = ''; load(); }
+  catch(e){ $('inviteOut').innerHTML = `<div class="err">${esc(e.message)}</div>`; }
+}
+async function setStatus(id, status){ const email = USERS[id];
+  if(status==='disabled' && !confirm(`¿Desactivar a ${email}? Su bot se parará y no podrá entrar.`)) return;
+  try{ await api('/api/admin/status', {user_id:id, status}); load(); }catch(e){ alert(e.message); }
+}
+async function resetPw(id){ const email = USERS[id];
+  if(!confirm(`¿Crear un enlace para que ${email} elija una contraseña nueva? (También se le desactivará la verificación en dos pasos.)`)) return;
+  try{ const r = await api('/api/admin/reset', {user_id:id});
+    $('resetOut').style.display=''; $('resetOut').innerHTML = `<b>Enlace para ${esc(email)}</b> (válido ${r.hours} horas, un solo uso):<div class="link">${esc(r.link)}</div>`; }
+  catch(e){ alert(e.message); }
+}
+load(); setInterval(load, 30000);
+</script>
+</body>
+</html>

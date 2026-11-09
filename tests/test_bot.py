@@ -995,3 +995,106 @@ def test_exportar_historial_para_excel(isolated):
     assert len(lines) == 1 + len(bot.read_trades()) >= 2
     row = lines[1].split(";")
     assert row[2] == "BTC/USDT" and "," in row[3] and "." not in row[3]
+
+
+# ---------- plataforma multiusuario ----------
+def _plat(tmp_path, monkeypatch):
+    import threading
+    import plataforma as pf
+    import plataforma_db as pdb
+    monkeypatch.setattr(pf, "DATA", tmp_path / "datos")
+    fake = FakeExchange({"BTC/USDT": rows_of(UP_DOWN), "ETH/USDT": rows_of([x / 10 for x in UP_DOWN])})
+    fake.i = 20
+    shared = pf.SharedMarket(fake)
+    monkeypatch.setattr(pf, "market", lambda ex_id: shared)
+    monkeypatch.setattr(bot.xch, "fetch_closed_candles",
+                        lambda e, s, tf, n: exchange.to_df(fake.rows[s][max(0, fake.i - n + 1): fake.i + 1]))
+    db = pdb.DB(tmp_path / "datos" / "valorize.db")
+    server = pf.make_server(0, db)
+    threading.Thread(target=server.serve_forever, daemon=True).start()
+    return server, db, f"http://127.0.0.1:{server.server_address[1]}"
+
+
+def _cookie(headers, name="vp_session"):
+    c = headers.get("Set-Cookie") or ""
+    return c.split(";")[0] if c.startswith(name + "=") else ""
+
+
+def test_plataforma_registro_aislamiento_y_admin(tmp_path, monkeypatch):
+    srv, db, base = _plat(tmp_path, monkeypatch)
+    try:
+        # sin sesión: al login
+        assert _req(base, "/")[0] == 302
+        assert _req(base, "/api/status")[0] == 401
+        # registro de admin por invitación (un solo uso)
+        inv = db.create_invite("admin")
+        code, h, _ = _req(base, "/api/register", "POST", {"invite": inv, "email": "Admin@Ej.com", "password": "clave-segura-1"})
+        admin = {"Cookie": _cookie(h)}
+        assert code == 200 and admin["Cookie"]
+        assert _req(base, "/api/register", "POST", {"invite": inv, "email": "otro@ej.com", "password": "clave-segura-2"})[0] == 400
+        # el admin invita a un usuario
+        code, _, b = _req(base, "/api/admin/invite", "POST", {"role": "user", "note": "Ana"}, admin)
+        link = json.loads(b)["link"]
+        token = link.split("invitacion=")[1]
+        code, h, _ = _req(base, "/api/register", "POST", {"invite": token, "email": "ana@ej.com", "password": "clave-de-ana-1"})
+        ana = {"Cookie": _cookie(h)}
+        # cada uno tiene su propio bot (simulado, sin claves del servidor)
+        st = json.loads(_req(base, "/api/status", headers=ana)[2])
+        assert st["platform"] and st["mode"] == "paper" and not st["admin"] and st["email"] == "ana@ej.com"
+        assert _req(base, "/api/start", "POST", {}, ana)[0] == 200
+        assert json.loads(_req(base, "/api/status", headers=ana)[2])["running"]
+        assert not json.loads(_req(base, "/api/status", headers=admin)[2])["running"]
+        assert srv.bots.apps[2].engine.files.state != srv.bots.apps[1].engine.files.state
+        assert (tmp_path / "datos" / "usuarios" / "2" / "state.json").exists()
+        # un usuario normal no puede administrar ni usar modos reales
+        assert _req(base, "/api/admin/users", headers=ana)[0] == 403
+        assert _req(base, "/admin", headers=ana)[0] == 302
+        bad = {"exchange": "binance", "mode": "live", "symbols": ["BTC/USDT"]}
+        assert _req(base, "/api/setup/save", "POST", bad, ana)[0] == 400
+        assert _req(base, "/api/shutdown", "POST", {}, ana)[0] == 404
+        # el admin ve a los usuarios y puede desactivar a Ana (se le para el bot y pierde la sesión)
+        users = json.loads(_req(base, "/api/admin/users", headers=admin)[2])["users"]
+        assert [u["email"] for u in users] == ["admin@ej.com", "ana@ej.com"] and users[1]["running"]
+        assert _req(base, "/api/admin/status", "POST", {"user_id": 2, "status": "disabled"}, admin)[0] == 200
+        assert _req(base, "/api/status", headers=ana)[0] == 401
+        assert 2 not in srv.bots.apps
+        code, _, b = _req(base, "/api/login", "POST", {"email": "ana@ej.com", "password": "clave-de-ana-1"})
+        assert code == 400 and "desactivada" in json.loads(b)["error"]
+        assert _req(base, "/api/admin/status", "POST", {"user_id": 1, "status": "disabled"}, admin)[0] == 400
+        # restablecer contraseña con enlace del admin
+        db.set_status(2, "active")
+        link = json.loads(_req(base, "/api/admin/reset", "POST", {"user_id": 2}, admin)[2])["link"]
+        rtoken = link.split("codigo=")[1]
+        assert _req(base, "/api/reset", "POST", {"token": rtoken, "password": "nueva-clave-ana"})[0] == 200
+        assert _req(base, "/api/reset", "POST", {"token": rtoken, "password": "otra-clave-ana"})[0] == 400
+        assert _req(base, "/api/login", "POST", {"email": "ana@ej.com", "password": "nueva-clave-ana"})[0] == 200
+        # contraseña incorrecta: bloqueo tras 5 intentos
+        for _ in range(5):
+            _req(base, "/api/login", "POST", {"email": "ana@ej.com", "password": "mala-clave-xx"})
+        code, _, b = _req(base, "/api/login", "POST", {"email": "ana@ej.com", "password": "nueva-clave-ana"})
+        assert code == 400 and "Demasiados" in json.loads(b)["error"]
+    finally:
+        for a in list(srv.bots.apps.values()):
+            a.engine.stop(notify_user=False)
+        srv.shutdown()
+
+
+def test_plataforma_doble_factor_por_usuario(tmp_path, monkeypatch):
+    import auth
+    srv, db, base = _plat(tmp_path, monkeypatch)
+    try:
+        inv = db.create_invite("user")
+        code, h, _ = _req(base, "/api/register", "POST", {"invite": inv, "email": "b@ej.com", "password": "clave-segura-b"})
+        me = {"Cookie": _cookie(h)}
+        secret = json.loads(_req(base, "/api/security/totp/begin", "POST", {}, me)[2])["secret"]
+        assert _req(base, "/api/security/totp/confirm", "POST", {"code": "000000"}, me)[0] == 400
+        clock = [__import__("time").time()]
+        assert _req(base, "/api/security/totp/confirm", "POST", {"code": auth.totp_code(secret, clock[0])}, me)[0] == 200
+        assert json.loads(_req(base, "/api/security", headers=me)[2])["totp"]
+        code, _, b = _req(base, "/api/login", "POST", {"email": "b@ej.com", "password": "clave-segura-b"})
+        assert code == 401 and json.loads(b)["need_code"]
+        nxt = auth.totp_code(secret, clock[0] + 30)
+        monkeypatch.setattr(auth.time, "time", lambda: clock[0] + 30)
+        assert _req(base, "/api/login", "POST", {"email": "b@ej.com", "password": "clave-segura-b", "code": nxt})[0] == 200
+    finally:
+        srv.shutdown()

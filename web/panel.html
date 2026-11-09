@@ -199,6 +199,7 @@ header .btn,header .brand,header .badge,header .chip,header .status{white-space:
   <button id="btnStart" class="btn primary" onclick="act('start')">▶ Arrancar</button>
   <button id="btnStop" class="btn" onclick="confirmAct('stop')">■ Parar</button>
   <button class="btn ghost hide-sm" id="btnOff" title="Apagar el panel y el bot" onclick="confirmAct('shutdown')">⏻</button>
+  <a class="btn ghost" id="btnAdmin" style="display:none;text-decoration:none" href="/admin" title="Administrar usuarios">👥<span class="hide-md"> Usuarios</span></a>
   <button class="btn ghost" id="btnSec" style="display:none" title="Seguridad: verificación en dos pasos" onclick="openSec()">🔒</button>
   <button class="btn ghost" id="btnLogout" style="display:none" title="Cerrar sesión" onclick="logout()">Salir</button>
 </header>
@@ -354,6 +355,8 @@ async function refresh(){
   renderLicBadge(s.license);
   $('btnOff').style.display = s.remote ? 'none' : ''; $('btnLogout').style.display = s.remote ? '' : 'none'; $('btnSec').style.display = s.remote ? '' : 'none';
   if(s.remote) $('foot').textContent = 'El bot funciona en tu servidor las 24 horas, aunque cierres esta pestaña. · Herramienta personal, no es asesoramiento financiero.';
+  if(s.platform){ $('foot').textContent = (s.email?s.email+' · ':'')+'Beta privada en modo simulado: dinero ficticio con precios reales. · No es asesoramiento financiero.';
+    $('btnAdmin').style.display = s.admin ? '' : 'none'; }
   if(!S.symbol) S.symbol = s.symbols[0];
   renderTabs(s); renderPositions(s); renderStrategy(s); drawEquity(s.equity_history);
   const p = s.prices[S.symbol]; if(p) $('priceNow').textContent = fp(p);
@@ -627,6 +630,7 @@ async function openTg(){ $('tgm').classList.add('show'); $('tgBody').innerHTML='
 const HC = {st:null, busy:false};
 function renderHc(msg, ok){
   const st=HC.st||{}, b=HC.busy;
+  if(st.hidden){ $('hcBody').style.display='none'; return; } $('hcBody').style.display='';
   const note = msg ? `<div class="note ${ok?'ok':'bad'}" style="margin:0 0 12px">${esc(msg)}</div>` : '';
   const bk = (st.backups||[]).length ? `<p class="muted" style="font-size:12px;margin:14px 0 0">💾 Copias de seguridad automáticas (una al día, se guardan ${st.backups.length>=14?'las últimas 14':st.backups.length}): última del ${esc(st.backups[0])}.</p>` : '';
   $('hcBody').innerHTML = `<h3 style="margin:0 0 4px;font-size:15px">🚨 Aviso si el bot deja de funcionar</h3>`+note+(st.configured ?
@@ -750,10 +754,11 @@ function stepMode(){
   $('wBody').innerHTML = `<p class="muted" style="margin:0 0 12px">¿Cómo quieres usar ${esc(i.name)}?</p>
    <button class="opt ${d.mode==='paper'?'sel':''}" onclick="setMode('paper')"><div class="rd"></div><div><b>Simulado <span class="tag g">recomendado para empezar</span></b>
      <span>Precios reales de ${esc(i.name)} con dinero ficticio. No necesita claves y no arriesga nada.</span></div></button>
-   <button class="opt ${d.mode==='live'&&d.testnet?'sel':''}" ${i.testnet?'':'disabled'} onclick="setMode('live',true)"><div class="rd"></div><div><b>Testnet</b>
-     <span>${i.testnet?'Órdenes de verdad en el entorno de pruebas de '+esc(i.name)+', con dinero de mentira. Necesita claves de testnet.':esc(i.name)+' no tiene entorno de pruebas.'}</span></div></button>
-   <button class="opt ${d.mode==='live'&&!d.testnet?'sel':''}" onclick="setMode('live',false)"><div class="rd"></div><div><b>Dinero real</b>
-     <span>Opera con tu cuenta. Necesita claves de API con permiso de trading (nunca de retiro).</span></div></button>
+   ${W.setup.paper_only?`<div class="note info" style="margin:0 0 12px">De momento la plataforma funciona solo en <b>modo simulado</b>. La testnet y el dinero real llegarán más adelante.</div>`:''}
+   <button class="opt ${d.mode==='live'&&d.testnet?'sel':''}" ${i.testnet&&!W.setup.paper_only?'':'disabled'} onclick="setMode('live',true)"><div class="rd"></div><div><b>Testnet</b>
+     <span>${W.setup.paper_only?'Próximamente.':i.testnet?'Órdenes de verdad en el entorno de pruebas de '+esc(i.name)+', con dinero de mentira. Necesita claves de testnet.':esc(i.name)+' no tiene entorno de pruebas.'}</span></div></button>
+   <button class="opt ${d.mode==='live'&&!d.testnet?'sel':''}" ${W.setup.paper_only?'disabled':''} onclick="setMode('live',false)"><div class="rd"></div><div><b>Dinero real</b>
+     <span>${W.setup.paper_only?'Próximamente.':'Opera con tu cuenta. Necesita claves de API con permiso de trading (nunca de retiro).'}</span></div></button>
    ${d.mode==='paper'?`<div class="field" style="margin-top:16px;max-width:260px"><label>Saldo ficticio inicial</label>
      <input class="inp" type="number" min="10" step="100" value="${d.paper_balance}" oninput="W.d.paper_balance=+this.value"></div>`:''}
    ${d.mode==='live'&&!d.testnet?'<div class="note warn">⚠️ Recomendación: prueba antes varias semanas en modo simulado.</div>':''}

@@ -17,6 +17,7 @@ REPO="${REPO:-https://github.com/solertesting-prog/BINANCE-BOT.git}"
 APP_USER="valorize"
 APP_DIR="/opt/valorize-bot"
 PORT=8765
+PLATFORM_PORT=8766
 export DEBIAN_FRONTEND=noninteractive
 
 echo "==> [0/7] Memoria de intercambio (servidores pequeños, p. ej. AWS t3.micro con 1 GB)"
@@ -71,6 +72,7 @@ set_env() {
   if grep -q "^$1=" "$ENV_FILE"; then sed -i "s|^$1=.*|$1=$2|" "$ENV_FILE"; else echo "$1=$2" >> "$ENV_FILE"; fi
 }
 set_env PANEL_HOSTS "$DOMAIN"
+set_env PLATFORM_HOSTS "app.$DOMAIN"         # plataforma multiusuario (beta privada)
 if [ -n "${PANEL_PASSWORD_HASH:-}" ]; then set_env PANEL_PASSWORD_HASH "$PANEL_PASSWORD_HASH"; fi
 chown "$APP_USER:" "$ENV_FILE"
 chmod 600 "$ENV_FILE"                     # solo el usuario del bot puede leer las claves
@@ -97,10 +99,35 @@ ProtectHome=true
 WantedBy=multi-user.target
 EOF
 
+cat > /etc/systemd/system/valorize-plataforma.service <<EOF
+[Unit]
+Description=Valorize Bot · plataforma multiusuario
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+User=$APP_USER
+WorkingDirectory=$APP_DIR
+ExecStart=$APP_DIR/venv/bin/python plataforma.py --port $PLATFORM_PORT
+Restart=always
+RestartSec=10
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ProtectHome=true
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
 cat > /etc/caddy/Caddyfile <<EOF
 $DOMAIN {
 	encode gzip
 	reverse_proxy 127.0.0.1:$PORT
+}
+app.$DOMAIN {
+	encode gzip
+	reverse_proxy 127.0.0.1:$PLATFORM_PORT
 }
 EOF
 
@@ -114,8 +141,8 @@ set -u
 IP="$(curl -4 -fsS --retry 5 --retry-delay 3 https://api.ipify.org)" || exit 0
 D="$(echo "$IP" | tr . -).sslip.io"
 grep -q "^$D {" /etc/caddy/Caddyfile && exit 0
-sed -i "s|^PANEL_HOSTS=.*|PANEL_HOSTS=$D|" /opt/valorize-bot/.env
-printf '%s {\n\tencode gzip\n\treverse_proxy 127.0.0.1:8765\n}\n' "$D" > /etc/caddy/Caddyfile
+sed -i "s|^PANEL_HOSTS=.*|PANEL_HOSTS=$D|; s|^PLATFORM_HOSTS=.*|PLATFORM_HOSTS=app.$D|" /opt/valorize-bot/.env
+printf '%s {\n\tencode gzip\n\treverse_proxy 127.0.0.1:8765\n}\napp.%s {\n\tencode gzip\n\treverse_proxy 127.0.0.1:8766\n}\n' "$D" "$D" > /etc/caddy/Caddyfile
 echo "https://$D" > /root/valorize-url.txt
 systemctl reload-or-restart caddy || true
 SCRIPT
@@ -144,12 +171,15 @@ systemctl daemon-reload
 systemctl enable --now valorize-bot
 systemctl restart valorize-bot
 systemctl enable caddy valorize-ip
+systemctl enable --now valorize-plataforma
+systemctl restart valorize-plataforma
 systemctl restart caddy
 
 echo "https://$DOMAIN" > /root/valorize-url.txt
 echo
 echo "=========================================================="
 echo "  Valorize Bot instalado: https://$DOMAIN"
+echo "  Plataforma (beta):      https://app.$DOMAIN"
 if [ -z "$(grep '^PANEL_PASSWORD_HASH=' "$ENV_FILE" | cut -d= -f2-)" ]; then
   echo "  FALTA LA CONTRASEÑA: el panel no se abrirá hasta crearla con:"
   echo "  sudo -u $APP_USER $APP_DIR/venv/bin/python $APP_DIR/panel.py --set-password && systemctl restart valorize-bot"
