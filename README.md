@@ -8,9 +8,10 @@ Valorize Bot es un bot de trading automático para el mercado spot (solo compras
 
 **Estrategia**
 - Cruce de medias móviles (EMA 20/50) con filtro de tendencia (EMA 200) y filtro de fuerza (ADX ≥ 20) para evitar mercados laterales.
+- **Filtro de mercado:** no compra otras monedas mientras BTC esté bajo su media de 200 velas (en las caídas, casi todas caen juntas).
 - **Stops según la volatilidad (ATR):** stop inicial a 2,5 × ATR y trailing a 3 × ATR, que sube con el precio.
 - **Tamaño según el riesgo:** cada operación arriesga como máximo un 1 % del capital.
-- **Varias monedas** a la vez, con límite de posiciones abiertas.
+- **Varias monedas** a la vez (botón ⭐ Recomendadas con 6 de las más líquidas), con límite de posiciones abiertas.
 - Interruptor de seguridad: vende todo y se detiene si el capital cae un 20 %.
 
 **Multi-exchange y asistente de configuración**
@@ -36,12 +37,17 @@ Valorize Bot es un bot de trading automático para el mercado spot (solo compras
 - Memoria de intercambio automática en servidores de 1 GB y dirección que se actualiza sola si cambia la IP pública.
 - HTTPS automático con Caddy (dominio gratuito `<ip>.sslip.io` o uno propio), servicio que se reinicia solo, cortafuegos y parches automáticos.
 - Login con contraseña (hash scrypt), cookie segura, bloqueo tras 5 intentos fallidos y lista de dominios permitidos. La sesión dura 7 días y sobrevive a reinicios y actualizaciones.
+- **Verificación en dos pasos** (TOTP: Google Authenticator, Authy...) opcional.
+- **Botón ⬆ Actualizar** en el panel: instala la última versión de GitHub y se reinicia solo.
+- **Aviso de caída** con healthchecks.io (latido cada 5 minutos) y **copia de seguridad diaria** (14 días).
 
 **Panel de control** (`http://127.0.0.1:8765`)
 - Gráfico de velas con las medias, las compras y ventas del bot y las líneas de entrada y stop.
 - Capital, resultado, posiciones con su P&L y su stop, curva de capital, historial y registro en vivo.
 - Botones para arrancar, parar y cerrar posiciones.
 - **🔔 Avisos por Telegram** configurables desde el panel: pegas el token de tu bot, detecta tu chat solo y envía un mensaje de prueba.
+- **Comandos por Telegram:** `/estado`, `/posiciones`, `/parar`, `/arrancar` (solo desde tu chat).
+- **⬇ Excel:** descarga el historial de operaciones listo para Excel.
 - Solo accesible desde tu ordenador y protegido contra peticiones de otras webs.
 
 **Herramientas**
@@ -72,12 +78,14 @@ Exchange, modo, claves y monedas se configuran desde el panel (**⚙ Configuraci
 | `bot.py` | Motor: brokers simulado y real, stops en el exchange, reconciliación y estado |
 | `panel.py` + `web/panel.html` | Servidor local y la interfaz del panel |
 | `setup_api.py` | Asistente: catálogo de exchanges, mercados, prueba de conexión y guardado |
-| `telegram_setup.py` | Conexión de los avisos por Telegram desde el panel |
+| `telegram_setup.py`, `telegram_bot.py` | Conexión de los avisos por Telegram desde el panel y comandos del chat |
+| `maintenance.py` | Copias de seguridad diarias y latido (aviso de caída) |
+| `updater.py` | Actualización desde el panel en el servidor |
 | `licensing.py` | Licencias con Lemon Squeezy (datos de tu tienda al principio del archivo) |
 | `compilar.bat`, `cliente/` | Compilación a `.exe` e instalador para clientes |
 | `backtest.py`, `report.py`, `optimize.py` | Backtest, informe HTML y optimización walk-forward |
 | `exchange.py` | Conexión con el exchange (ccxt), capacidades de cada uno y descarga de velas |
-| `tests/` | 39 tests sin conexión: estrategia, backtest, motor, asistente, licencias y acceso con contraseña (con exchanges y servidor de licencias simulados) y panel |
+| `tests/` | 46 tests sin conexión: estrategia, backtest, motor, asistente, licencias y acceso con contraseña (con exchanges y servidor de licencias simulados) y panel |
 | `auth.py`, `web/login.html` | Acceso con contraseña al panel (para usarlo por internet) |
 | `deploy/instalar-servidor.sh`, `deploy/generar_cloud_init.py`, `preparar-servidor.bat` | Instalación automática en un servidor (ver SERVIDOR.md) |
 | `deploy/valorize-bot.service` | Servicio systemd básico (alternativa manual) |

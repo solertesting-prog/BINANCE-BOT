@@ -9,13 +9,16 @@
 - Las sesiones sobreviven a reinicios y actualizaciones: se guardan en sessions.json (solo una
   huella de cada sesión, no la sesión en sí) y caducan todas si cambia la contraseña.
 """
+import base64
 import hashlib
 import hmac
 import json
 import os
 import secrets
+import struct
 import threading
 import time
+from urllib.parse import quote
 
 from dotenv import dotenv_values, set_key
 
@@ -36,9 +39,15 @@ class AuthError(Exception):
     pass
 
 
+class NeedCode(AuthError):
+    """Contraseña correcta, pero falta el código de verificación en dos pasos."""
+
+
 def _setting(name: str) -> str:
     vals = dotenv_values(C.ENV_FILE) if C.ENV_FILE.exists() else {}
-    return (vals.get(name) or os.getenv(name) or "").strip()
+    if name in vals:                           # el archivo manda (aunque esté vacío = desactivado)
+        return (vals.get(name) or "").strip()
+    return (os.getenv(name) or "").strip()
 
 
 def password_hash() -> str:
@@ -132,13 +141,17 @@ def set_password(password: str):
         _save()
 
 
-def login(password: str, ip: str) -> str:
+def login(password: str, ip: str, code: str = "") -> str:
     now = time.time()
     with _lock:
         fails, until = _fails.get(ip, [0, 0])
         if until > now:
             raise AuthError(f"Demasiados intentos. Espera {int((until - now) // 60) + 1} min.")
     ok = verify(password or "", password_hash())
+    if ok and totp_enabled():
+        if not (code or "").strip():
+            raise NeedCode("Escribe el código de 6 cifras de tu app de autenticación.")
+        ok = totp_verify(totp_secret(), code)
     with _lock:
         if not ok:
             fails += 1
@@ -146,7 +159,7 @@ def login(password: str, ip: str) -> str:
             if fails >= MAX_FAILS:
                 _fails[ip] = [0, now + LOCK_MINUTES * 60]
                 raise AuthError(f"Contraseña incorrecta. Acceso bloqueado {LOCK_MINUTES} min.")
-            raise AuthError("Contraseña incorrecta.")
+            raise AuthError("Código incorrecto." if (code or "").strip() else "Contraseña incorrecta.")
         _fails.pop(ip, None)
         _load()
         token = secrets.token_urlsafe(32)
@@ -177,3 +190,77 @@ def logout(token: str):
         _load()
         if _sessions.pop(_key(token or ""), None):
             _save()
+
+
+# ---------- verificación en dos pasos (TOTP, compatible con Google Authenticator, Authy...) ----------
+TOTP_STEP, TOTP_DIGITS = 30, 6
+_pending_totp = {}        # secreto propuesto, a la espera de confirmarlo con un código
+_last_counter = {}        # secreto -> último intervalo usado (un código no sirve dos veces)
+
+
+def totp_secret() -> str:
+    return _setting("PANEL_TOTP_SECRET")
+
+
+def totp_enabled() -> bool:
+    return bool(totp_secret())
+
+
+def totp_code(secret: str, t: float = None) -> str:
+    key = base64.b32decode(secret.upper() + "=" * (-len(secret) % 8))
+    counter = int((time.time() if t is None else t) // TOTP_STEP)
+    h = hmac.new(key, struct.pack(">Q", counter), hashlib.sha1).digest()
+    o = h[-1] & 0x0F
+    n = (struct.unpack(">I", h[o:o + 4])[0] & 0x7FFFFFFF) % 10 ** TOTP_DIGITS
+    return f"{n:0{TOTP_DIGITS}d}"
+
+
+def totp_verify(secret: str, code: str, t: float = None) -> bool:
+    code = "".join(ch for ch in str(code or "") if ch.isdigit())
+    if len(code) != TOTP_DIGITS or not secret:
+        return False
+    now = time.time() if t is None else t
+    for drift in (0, -1, 1):                   # tolera ±30 s de diferencia de reloj
+        when = now + drift * TOTP_STEP
+        if hmac.compare_digest(totp_code(secret, when), code):
+            counter = int(when // TOTP_STEP)
+            with _lock:
+                if _last_counter.get(secret, -1) >= counter:
+                    return False               # código ya usado
+                _last_counter[secret] = counter
+            return True
+    return False
+
+
+def totp_begin(account: str = "panel") -> dict:
+    """Propone un secreto nuevo. No se activa hasta confirmarlo con totp_confirm()."""
+    if totp_enabled():
+        raise AuthError("La verificación en dos pasos ya está activada.")
+    secret = base64.b32encode(secrets.token_bytes(20)).decode().rstrip("=")
+    with _lock:
+        _pending_totp["secret"] = secret
+    label = quote(f"Valorize Bot:{account}")
+    uri = f"otpauth://totp/{label}?secret={secret}&issuer=Valorize%20Bot&digits=6&period=30"
+    return {"secret": secret, "uri": uri}
+
+
+def totp_confirm(code: str):
+    with _lock:
+        secret = _pending_totp.get("secret")
+    if not secret:
+        raise AuthError("Empieza de nuevo la activación.")
+    if not totp_verify(secret, code):
+        raise AuthError("El código no es correcto. Revisa que la hora del móvil esté en automático.")
+    if not C.ENV_FILE.exists():
+        C.ENV_FILE.touch()
+    set_key(str(C.ENV_FILE), "PANEL_TOTP_SECRET", secret, quote_mode="never")
+    with _lock:
+        _pending_totp.clear()
+
+
+def totp_disable(code: str):
+    if not totp_enabled():
+        return
+    if not totp_verify(totp_secret(), code):
+        raise AuthError("El código no es correcto.")
+    set_key(str(C.ENV_FILE), "PANEL_TOTP_SECRET", "", quote_mode="never")

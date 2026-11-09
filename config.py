@@ -22,7 +22,7 @@ SETTINGS_FILE = ROOT / "settings.json"
 
 # Campos que el asistente del panel puede guardar en settings.json
 SETUP_FIELDS = ("exchange", "symbols", "timeframe", "risk_per_trade", "max_open_positions",
-                "position_pct", "fee", "paper_balance")
+                "position_pct", "fee", "paper_balance", "market_filter")
 # Credenciales: nombre en ccxt -> campo de Config
 CRED_FIELDS = {"apiKey": "api_key", "secret": "api_secret", "password": "api_password", "uid": "api_uid"}
 
@@ -42,6 +42,8 @@ class Config:
     # --- Filtros de entrada ---
     trend_filter: int = 200          # solo compra si el precio está sobre esta media larga
     adx_min: float = 20              # solo compra si ADX >= este valor (evita mercados laterales)
+    market_filter: str = "BTC"       # filtro de mercado: no compra otras monedas si BTC está bajo
+    market_filter_ma: int = 200      #   su media de 200 velas (en las caídas, todas caen juntas). "" = no
 
     # --- Stops ---
     stop_mode: str = "atr"           # "atr" (se adapta a la volatilidad) o "pct" (porcentaje fijo)

@@ -17,7 +17,8 @@ from pathlib import Path
 import pandas as pd
 
 from config import CONFIG, Config
-from strategy import add_signals, describe, exit_levels, initial_stop, position_spend
+from strategy import (add_signals, describe, exit_levels, initial_stop, market_ok, market_reference,
+                      position_spend)
 
 DATA_DIR = Path("data")
 
@@ -46,10 +47,12 @@ def load_data(symbol: str, timeframe: str, days: int, csv: str | None = None) ->
 
 # ---------- simulación ----------
 def run_backtest(df: pd.DataFrame, cfg: Config, initial: float = 1000.0,
-                 start=None, end=None) -> dict:
+                 start=None, end=None, market_df: pd.DataFrame = None) -> dict:
     """Simula la estrategia. `start`/`end` (fechas) recortan el periodo operado,
-    pero los indicadores se calculan con todo el historial (sin "calentamiento" perdido)."""
-    df = add_signals(df, cfg)
+    pero los indicadores se calculan con todo el historial (sin "calentamiento" perdido).
+    `market_df`: velas de la moneda de referencia del filtro de mercado (p. ej. BTC)."""
+    market = market_ok(market_df, cfg) if market_df is not None else None
+    df = add_signals(df, cfg, market)
     df = df.loc[start:end]
     if len(df) < 2:
         raise ValueError("No hay suficientes velas en el periodo")
@@ -172,6 +175,8 @@ def main():
     p.add_argument("--trailing", type=float, default=CONFIG.trailing_stop, help="trailing en %% (0 = no)")
     p.add_argument("--tp", type=float, default=CONFIG.take_profit, help="take profit (0 = no)")
     p.add_argument("--risk", type=float, default=CONFIG.risk_per_trade, help="riesgo por operación (0 = no)")
+    p.add_argument("--market", default=CONFIG.market_filter,
+                   help="filtro de mercado: moneda de referencia (BTC) o '' para desactivarlo")
     p.add_argument("--export", help="guarda las operaciones en este CSV")
     p.add_argument("--html", help="genera un informe visual en este archivo HTML")
     a = p.parse_args()
@@ -181,9 +186,12 @@ def main():
         cfg = replace(CONFIG, symbols=(sym,), timeframe=a.timeframe, fast=a.fast, slow=a.slow,
                       ma_type=a.ma, trend_filter=a.trend, adx_min=a.adx, stop_mode=a.stop,
                       atr_stop_mult=a.atr_stop, atr_trail_mult=a.atr_trail, stop_loss=a.sl,
-                      trailing_stop=a.trailing, take_profit=a.tp, risk_per_trade=a.risk)
+                      trailing_stop=a.trailing, take_profit=a.tp, risk_per_trade=a.risk,
+                      market_filter=a.market)
         df = load_data(sym, cfg.timeframe, a.days, a.csv)
-        r = run_backtest(df, cfg)
+        ref = market_reference(sym, cfg)
+        mdf = load_data(ref, cfg.timeframe, a.days) if ref and not a.csv else None
+        r = run_backtest(df, cfg, market_df=mdf)
         print_report(r)
         suffix = "" if len(symbols) == 1 else "_" + sym.replace("/", "")
         if a.export and r["operaciones"]:

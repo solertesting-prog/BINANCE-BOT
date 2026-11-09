@@ -146,7 +146,11 @@ El panel se abre en tu navegador en la dirección **http://127.0.0.1:8765**. Sol
 | **▶ Arrancar** | El bot empieza a operar |
 | **■ Parar** | El bot deja de abrir y cerrar operaciones. Las posiciones abiertas se mantienen (en modo real, su stop sigue puesto en el exchange) |
 | **Cerrar posición** | Vende esa moneda ahora mismo, a precio de mercado |
-| **⏻** | Apaga el panel y el bot por completo |
+| **⏻** | Apaga el panel y el bot por completo (en el servidor no aparece: allí está siempre encendido) |
+| **🔔 Avisos** | Avisos por Telegram y aviso si el bot deja de funcionar (ver Parte 8) |
+| **⬇ Excel** | Descarga el historial de operaciones para Excel (por ejemplo, para la declaración de la renta) |
+| **⬆ Actualizar** | Solo en el servidor y cuando hay una versión nueva: la instala y el bot sigue solo |
+| **🔒** | Solo en el servidor: verificación en dos pasos (un código del móvil además de la contraseña) |
 
 ### Cosas importantes
 
@@ -222,6 +226,26 @@ Te llegará un mensaje cada vez que el bot compre o venda, un resumen diario y c
 6. Te llegará "✅ Valorize Bot conectado" a Telegram. Listo: funciona al momento, sin reiniciar.
 
 > Desde la misma ventana puedes enviar un mensaje de prueba o desactivar los avisos.
+
+### Controlar el bot desde Telegram
+
+En el chat de tu bot puedes escribir (o elegir en el menú **/**):
+
+| Comando | Qué hace |
+|---|---|
+| `/estado` | Capital, resultado, posiciones y si está en marcha |
+| `/posiciones` | Detalle de cada posición abierta y su stop |
+| `/parar` | Detiene el bot (las posiciones mantienen su stop en el exchange) |
+| `/arrancar` | Lo vuelve a poner en marcha |
+| `/ayuda` | La lista de comandos |
+
+Solo obedece a **tu** chat: si otra persona encuentra tu bot y le escribe, no le hace caso.
+
+### Aviso si el bot deja de funcionar
+
+Telegram no puede avisarte si el ordenador o el servidor entero se apaga. En la misma ventana **🔔 Avisos** puedes conectar **healthchecks.io** (gratis): el bot le da señales de vida cada 5 minutos y, si dejan de llegar (o el bot lleva un rato con errores), te avisa por email o Telegram. Los pasos aparecen en la propia ventana.
+
+> 💾 El bot guarda además una **copia de seguridad diaria** del estado, las operaciones y los ajustes en la carpeta `backups` (conserva las últimas 14). Las claves no se copian.
 
 ---
 
@@ -360,7 +384,9 @@ Suele pasar con cantidades muy pequeñas (por debajo del mínimo del exchange) o
 El bot perdió más del límite (20 %), vendió todo y se paró para protegerte. **Piensa qué ha pasado antes de seguir.** Para continuar, pulsa **Reactivar** y luego **Arrancar**.
 
 ### El bot lleva días sin operar
-Es normal con velas de 4 horas y los filtros activados. Mira en el **Registro** del panel que siga apareciendo "vela … cerrada" cada 4 horas.
+Es normal con velas de 4 horas y los filtros activados. Mira en el **Registro** del panel que siga apareciendo "vela … cerrada" cada 4 horas. Si ves "Filtro de mercado: BTC/USDT está bajo su media…", es que BTC está en tendencia bajista y el bot no compra otras monedas a propósito (se puede desactivar en ⚙ Configuración → Monedas, aunque no se recomienda).
+
+> 💡 Con **5–8 monedas** opera bastante más a menudo que solo con BTC: en ⚙ Configuración → Monedas, pulsa **⭐ Recomendadas**.
 
 ### El puerto 8765 está ocupado
 Añade `PANEL_PORT=8766` al archivo `.env` y abre el panel en **http://127.0.0.1:8766**.

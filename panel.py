@@ -30,8 +30,11 @@ import bot
 import config as C
 import exchange as xch
 import licensing
+import maintenance
 import setup_api
+import telegram_bot
 import telegram_setup
+import updater
 from config import CONFIG
 from strategy import add_signals
 
@@ -250,6 +253,10 @@ class Handler(BaseHTTPRequestHandler):
                 self._json({**app.engine.snapshot(), "remote": auth.enabled()})
             elif u.path == "/api/candles":
                 self._json(app.candles(q.get("symbol", [app.engine.cfg.symbols[0]])[0]))
+            elif u.path == "/api/trades/export":
+                name = f"valorize-operaciones-{datetime.now(timezone.utc):%Y-%m-%d}.csv"
+                self._send(200, bot.export_trades_csv(), "text/csv; charset=utf-8",
+                           {"Content-Disposition": f'attachment; filename="{name}"'})
             elif u.path == "/api/trades":
                 self._json(bot.read_trades()[-200:][::-1])
             elif u.path == "/api/log":
@@ -258,6 +265,15 @@ class Handler(BaseHTTPRequestHandler):
                 self._json(licensing.status())
             elif u.path == "/api/telegram":
                 self._json(telegram_setup.status())
+            elif u.path == "/api/update":
+                try:
+                    self._json(updater.check())
+                except updater.UpdateError as ue:
+                    self._json({"available": True, "pending": 0, "error": str(ue)})
+            elif u.path == "/api/security":
+                self._json({"remote": auth.enabled(), "totp": auth.totp_enabled()})
+            elif u.path == "/api/health":
+                self._json(maintenance.health_status())
             elif u.path == "/api/setup":
                 self._json({**setup_api.current(app.engine.cfg), **setup_api.catalog()})
             elif u.path == "/api/setup/exchange":
@@ -285,7 +301,9 @@ class Handler(BaseHTTPRequestHandler):
             body = json.loads(self.rfile.read(length) or b"{}") if length else {}
             if u.path == "/api/login":
                 try:
-                    token = auth.login(str(body.get("password", "")), self._ip())
+                    token = auth.login(str(body.get("password", "")), self._ip(), str(body.get("code", "")))
+                except auth.NeedCode as nc:
+                    return self._json({"ok": False, "need_code": True, "error": str(nc)}, 401)
                 except auth.AuthError as ae:
                     log.warning(f"Intento de acceso fallido al panel desde {self._ip()}")
                     return self._json({"ok": False, "error": str(ae)}, 401)
@@ -319,6 +337,35 @@ class Handler(BaseHTTPRequestHandler):
                     elif u.path.endswith("/remove"):
                         log.info("Avisos por Telegram desactivados desde el panel.")
                 return self._json(r)
+            if u.path.startswith("/api/security/totp/"):
+                what = u.path.rsplit("/", 1)[1]
+                try:
+                    if what == "begin":
+                        return self._json({"ok": True, **auth.totp_begin(self.headers.get("Host", "panel").split(":")[0])})
+                    if what == "confirm":
+                        auth.totp_confirm(str(body.get("code", "")))
+                        log.info("Verificación en dos pasos activada.")
+                    elif what == "disable":
+                        auth.totp_disable(str(body.get("code", "")))
+                        log.info("Verificación en dos pasos desactivada.")
+                    else:
+                        return self._json({"ok": False, "error": "no encontrado"}, 404)
+                except auth.AuthError as ae:
+                    return self._json({"ok": False, "error": str(ae)}, 400)
+                return self._json({"ok": True, "totp": auth.totp_enabled()})
+            if u.path == "/api/update/apply":
+                try:
+                    r = updater.apply(lambda: bot.save_state(app.engine.state))
+                except updater.UpdateError as ue:
+                    return self._json({"ok": False, "error": str(ue)}, 400)
+                return self._json({"ok": True, **r})
+            if u.path == "/api/health/set":
+                try:
+                    r = maintenance.set_healthcheck(str(body.get("url", "")))
+                except maintenance.HealthError as he:
+                    return self._json({"ok": False, "error": str(he)}, 400)
+                log.info("Aviso de caída " + ("activado." if r["configured"] else "desactivado."))
+                return self._json({"ok": True, **r})
             if u.path == "/api/license/activate":
                 st = licensing.activate(body.get("key", ""))
                 log.info(f"Licencia activada en este PC ({st.get('product')}).")
@@ -406,6 +453,8 @@ def main():
     p.add_argument("--no-browser", action="store_true", help="no abrir el navegador")
     p.add_argument("--set-password", action="store_true",
                    help="crea o cambia la contraseña del panel (necesaria para usarlo por internet)")
+    p.add_argument("--disable-2fa", action="store_true",
+                   help="desactiva la verificación en dos pasos (si has perdido el móvil)")
     p.add_argument("--port", type=int, default=CONFIG.panel_port)
     a = p.parse_args()
     url = f"http://127.0.0.1:{a.port}/"
@@ -420,6 +469,12 @@ def main():
         except auth.AuthError as e:
             raise SystemExit(str(e))
         print("Contraseña guardada. Desde ahora el panel pedirá iniciar sesión.")
+        return
+    if a.disable_2fa:
+        from dotenv import set_key
+        if C.ENV_FILE.exists():
+            set_key(str(C.ENV_FILE), "PANEL_TOTP_SECRET", "", quote_mode="never")
+        print("Verificación en dos pasos desactivada. Reinicia el panel (systemctl restart valorize-bot).")
         return
     if auth.unsafe_config():
         raise SystemExit("PANEL_HOSTS permite acceder desde internet pero no hay contraseña. "
@@ -452,6 +507,8 @@ def main():
     stop_event = threading.Event()
     threading.Thread(target=price_watcher, args=(server.app, stop_event), daemon=True).start()
     threading.Thread(target=license_watcher, args=(server.app, stop_event), daemon=True).start()
+    threading.Thread(target=maintenance.watcher, args=(server.app, stop_event), daemon=True).start()
+    threading.Thread(target=telegram_bot.listener, args=(server.app, stop_event), daemon=True).start()
     if not a.no_browser:
         threading.Timer(1.0, webbrowser.open, [url]).start()
     try:

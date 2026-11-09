@@ -84,6 +84,9 @@ Para no tener dos bots a la vez, en el panel de tu PC pulsa **⏻** y, si activa
 ## Recomendado
 
 - **Avisos por Telegram:** con el bot en un servidor es la mejor forma de enterarte de compras, ventas y problemas. En el panel pulsa **🔔 Avisos** y sigue los 3 pasos (crear tu bot con @BotFather, pegar el token y escribirle). Se activan al momento, sin reiniciar nada.
+- **Aviso de caída:** en **🔔 Avisos**, conecta healthchecks.io (gratis) para enterarte si el servidor se apaga o el bot se atasca. Telegram solo no te avisaría en ese caso.
+- **Verificación en dos pasos:** botón **🔒** del panel. Con ella, aunque alguien averigüe tu contraseña, no puede entrar sin el código de tu móvil.
+- **Actualizaciones:** cuando haya una versión nueva aparecerá el botón **⬆ Actualizar** en el panel. Se instala en unos segundos y el bot continúa solo.
 - **Dinero real:** en tu exchange, **restringe la clave de API a la IP de tu servidor** (en AWS, si vas a hacerlo, asigna antes una *IP elástica* para que no cambie). Así, aunque alguien robara la clave, no podría usarla desde otro sitio. Y nunca actives el permiso de retiros.
 
 ## Administración (avanzado)
@@ -97,8 +100,10 @@ Solo si alguna vez lo necesitas. Abre una terminal del servidor desde el navegad
 | Ver si funciona | `systemctl status valorize-bot` |
 | Ver el registro en directo | `journalctl -u valorize-bot -f` |
 | Ver cómo fue la instalación | `cat /var/log/valorize-install.log` |
-| Actualizar a la última versión de GitHub | `bash /opt/valorize-bot/deploy/instalar-servidor.sh` |
+| Actualizar todo, también el sistema (HTTPS, servicio) | `bash /opt/valorize-bot/deploy/instalar-servidor.sh` (lo normal es usar el botón ⬆ Actualizar del panel) |
 | Cambiar la contraseña del panel | `sudo -u valorize /opt/valorize-bot/venv/bin/python /opt/valorize-bot/panel.py --set-password` |
+| He perdido el móvil de la verificación en dos pasos | `sudo -u valorize /opt/valorize-bot/venv/bin/python /opt/valorize-bot/panel.py --disable-2fa` y después `systemctl restart valorize-bot` |
+| Ver las copias de seguridad | `ls /opt/valorize-bot/backups` |
 | Editar el `.env` a mano | `nano /opt/valorize-bot/.env` y después `systemctl restart valorize-bot` |
 | Reiniciar el bot | `systemctl restart valorize-bot` |
 

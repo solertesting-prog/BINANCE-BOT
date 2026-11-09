@@ -21,7 +21,7 @@ from strategy import add_signals, exit_levels, position_spend  # noqa: E402
 BASE = replace(CONFIG, symbols=("BTC/USDT",), fast=3, slow=6, ma_type="sma", trend_filter=0, adx_min=0,
                stop_mode="pct", stop_loss=0, trailing_stop=0, take_profit=0, fee=0, risk_per_trade=0,
                atr_period=3, max_open_positions=3, mode="paper", paper_balance=1000, max_drawdown=0.5,
-               telegram_token="", exchange_stops=True)
+               telegram_token="", exchange_stops=True, market_filter="")
 
 
 def candles(closes, start=1_700_000_000_000):
@@ -239,6 +239,36 @@ def test_bot_varias_monedas_y_limite_de_posiciones(isolated):
     run_engine(e, 20)                      # tras el cruce alcista
     assert len(e.state["positions"]) == 2  # la tercera señal se ignora por el límite
     assert e.snapshot()["positions"][0]["symbol"] == "BTC/USDT"
+
+
+def test_filtro_de_mercado_bloquea_altcoins_si_btc_baja(isolated):
+    from strategy import market_reference
+    cfg = replace(BASE, symbols=("BTC/USDT", "ETH/USDT"), market_filter="BTC", market_filter_ma=5)
+    assert market_reference("ETH/USDT", cfg) == "BTC/USDT"
+    assert market_reference("BTC/USDT", cfg) is None
+    assert market_reference("ETH/BTC", cfg) is None
+    assert market_reference("ETH/USDT", replace(cfg, market_filter="")) is None
+    # BTC en caída continua (siempre bajo su media) y ETH con un cruce alcista: no compra ETH
+    btc_down = [200 - i for i in range(len(UP_DOWN))]
+    ex = FakeExchange({"BTC/USDT": rows_of(btc_down), "ETH/USDT": rows_of([x / 10 for x in UP_DOWN])})
+    e = bot.Engine(cfg, ex)
+    e.connect()
+    run_engine(e, 20)
+    assert e.state["positions"] == {}
+    # con BTC subiendo, la misma señal de ETH sí compra
+    btc_up = [100 + i for i in range(len(UP_DOWN))]
+    ex2 = FakeExchange({"BTC/USDT": rows_of(btc_up), "ETH/USDT": rows_of([x / 10 for x in UP_DOWN])})
+    e2 = bot.Engine(replace(cfg, symbols=("ETH/USDT",)), ex2)
+    e2.state = bot.load_state(cfg) | {"positions": {}, "last_candle": {}, "paper_usdt": 1000, "start_equity": None}
+    e2.connect()
+    run_engine(e2, 20)
+    assert "ETH/USDT" in e2.state["positions"]
+    # el backtest aplica el mismo filtro
+    bt_off = run_backtest(candles([x / 10 for x in UP_DOWN]), replace(cfg, symbols=("ETH/USDT",)),
+                          market_df=candles(btc_down))
+    bt_on = run_backtest(candles([x / 10 for x in UP_DOWN]), replace(cfg, symbols=("ETH/USDT",)),
+                         market_df=candles(btc_up))
+    assert bt_off["operaciones"] == 0 and bt_on["operaciones"] >= 1
 
 
 def test_bot_real_coloca_stop_en_binance_y_lo_sube(isolated):
@@ -832,3 +862,136 @@ def test_sesion_sobrevive_a_un_reinicio(with_password):
     auth.set_password("otra-contraseña-456")             # cambiar la contraseña las cierra todas
     auth._sessions.clear(); auth._loaded_for = None
     assert not auth.check(token)
+
+
+# ---------- copias y latido ----------
+def test_copias_de_seguridad_diarias_con_rotacion(tmp_path):
+    import maintenance as m
+    assert m.backup("2026-01-01", tmp_path) is None            # nada que copiar
+    (tmp_path / "state.json").write_text("{}")
+    (tmp_path / "trades_log.csv").write_text("a,b\n")
+    (tmp_path / ".env").write_text("SECRETO=1\n")
+    d = m.backup("2026-01-01", tmp_path)
+    assert sorted(p.name for p in d.iterdir()) == ["state.json", "trades_log.csv"]   # sin .env
+    assert m.backup("2026-01-01", tmp_path) is None            # una al día
+    for i in range(2, 20):
+        m.backup(f"2026-01-{i:02d}", tmp_path)
+    kept = m.list_backups(tmp_path)
+    assert len(kept) == m.KEEP_DAYS and kept[0] == "2026-01-19" and "2026-01-01" not in kept
+
+
+def test_latido_y_salud_del_motor(tmp_path, monkeypatch):
+    import config as C
+    import maintenance as m
+    monkeypatch.setattr(C, "ENV_FILE", tmp_path / ".env")
+    calls = []
+
+    class R:
+        def __init__(s, code): s.status_code = code
+    monkeypatch.setattr(m.requests, "post", lambda url, data=None, timeout=None: calls.append(url) or R(200))
+    try:
+        m.set_healthcheck("http://inseguro.example")
+        assert False
+    except m.HealthError:
+        pass
+    st = m.set_healthcheck("https://hc-ping.com/abc")
+    assert st["configured"] and st["host"] == "hc-ping.com" and calls == ["https://hc-ping.com/abc"]
+
+    class E:
+        state, last_error = {"halted": False}, "x"
+        def __init__(s, running, last=None, started=0): s._r, s.last_cycle_ts, s.started_ts = running, last, started
+        def is_running(s): return s._r
+    now = 10_000
+    assert m.engine_healthy(E(False), now)[0]                  # parado a propósito: sano
+    assert m.engine_healthy(E(True, last=now - 60), now)[0]
+    assert not m.engine_healthy(E(True, last=now - 2000), now)[0]
+    assert m.engine_healthy(E(True, started=now - 30), now)[0]  # recién arrancado
+    assert not m.set_healthcheck("")["configured"]
+
+
+def test_actualizar_desde_git(tmp_path, monkeypatch):
+    import subprocess
+    import updater
+    run = lambda *a, cwd: subprocess.run(["git", *a], cwd=cwd, check=True, capture_output=True)
+    origin, clone = tmp_path / "origin", tmp_path / "clone"
+    origin.mkdir()
+    run("init", "-q", "-b", "main", cwd=origin)
+    for k, v in (("user.email", "t@t"), ("user.name", "t")):
+        run("config", k, v, cwd=origin)
+    (origin / "a.txt").write_text("1")
+    run("add", ".", cwd=origin); run("commit", "-qm", "primera", cwd=origin)
+    run("clone", "-q", "--depth", "1", f"file://{origin}", str(clone), cwd=tmp_path)
+    monkeypatch.setattr(updater, "ROOT", clone)
+    monkeypatch.setattr(updater, "available", lambda: True)
+    assert updater.check(max_age=0)["pending"] == 0
+    (origin / "a.txt").write_text("2")
+    run("commit", "-qam", "Mejora nueva", cwd=origin)
+    st = updater.check(max_age=0)
+    assert st["pending"] == 1 and st["changes"] == ["Mejora nueva"]
+    restarts = []
+    monkeypatch.setattr(updater.threading, "Timer", lambda t, f: type("T", (), {"start": lambda s: restarts.append(f)})())
+    saved = []
+    r = updater.apply(lambda: saved.append(1))
+    assert r["updated"] and (clone / "a.txt").read_text() == "2" and saved and restarts
+    assert updater.check(max_age=0)["pending"] == 0
+
+
+def test_comandos_de_telegram(isolated):
+    import telegram_bot as tb
+    ex = FakeExchange({"BTC/USDT": rows_of(UP_DOWN)})
+    e = bot.Engine(BASE, ex)
+    e.connect()
+    run_engine(e, 20)                                     # con una posición abierta
+    app = type("App", (), {"engine": e})()
+    assert "/parar" in tb.handle(app, "/ayuda")
+    st = tb.handle(app, "/estado")
+    assert "parado" in st and "BTC/USDT" in st and "Capital" in st
+    assert "Entrada" in tb.handle(app, "/posiciones@mi_bot")
+    assert "ya estaba parado" in tb.handle(app, "/parar")
+    started = []
+    e.start = lambda: started.append(1)
+    assert tb.handle(app, "/arrancar") == "" and started
+    assert "No conozco" in tb.handle(app, "hola")
+
+
+def test_verificacion_en_dos_pasos(with_password, monkeypatch):
+    import base64
+    import auth
+    rfc = base64.b32encode(b"12345678901234567890").decode()  # vector de prueba del RFC 6238
+    assert auth.totp_code(rfc, 59) == "287082"
+    assert auth.totp_code(rfc, 1111111109) == "081804"
+    clock = [1_800_000_000.0]
+    monkeypatch.setattr(auth.time, "time", lambda: clock[0])
+    setup = auth.totp_begin()
+    assert setup["uri"].startswith("otpauth://totp/") and setup["secret"] in setup["uri"]
+    assert not auth.totp_enabled()
+    with pytest.raises(auth.AuthError):
+        auth.totp_confirm("000000")
+    auth.totp_confirm(auth.totp_code(setup["secret"]))
+    assert auth.totp_enabled()
+    with pytest.raises(auth.NeedCode):
+        auth.login("contraseña-segura-123", "9.9.9.9")
+    with pytest.raises(auth.AuthError, match="Código incorrecto"):
+        auth.login("contraseña-segura-123", "9.9.9.9", "123456")
+    clock[0] += 30
+    code = auth.totp_code(setup["secret"])
+    assert auth.login("contraseña-segura-123", "9.9.9.9", code)
+    with pytest.raises(auth.AuthError):                     # el mismo código no sirve dos veces
+        auth.login("contraseña-segura-123", "9.9.9.9", code)
+    clock[0] += 30
+    auth.totp_disable(auth.totp_code(setup["secret"]))
+    assert not auth.totp_enabled()
+    assert auth.login("contraseña-segura-123", "9.9.9.9")
+
+
+def test_exportar_historial_para_excel(isolated):
+    ex = FakeExchange({"BTC/USDT": rows_of(UP_DOWN)})
+    e = bot.Engine(BASE, ex)
+    e.connect()
+    run_engine(e, len(UP_DOWN))
+    data = bot.export_trades_csv().decode("utf-8")
+    assert data.startswith("﻿Entrada (UTC);Salida (UTC);Par;")
+    lines = data.strip().split("\r\n")
+    assert len(lines) == 1 + len(bot.read_trades()) >= 2
+    row = lines[1].split(";")
+    assert row[2] == "BTC/USDT" and "," in row[3] and "." not in row[3]

@@ -19,3 +19,4 @@ nuitka-crash-report.xml
 cloud-init-servidor.txt
 sessions.json
 sessions.tmp
+backups/

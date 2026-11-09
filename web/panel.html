@@ -40,6 +40,7 @@ header{position:sticky;top:0;z-index:10;display:flex;align-items:center;gap:14px
 .btn.primary:hover{background:#ffc554}
 .btn.danger{color:#ff8a98;border-color:#4a2530;background:#211419}
 .btn.ghost{background:transparent}
+.btn.upd{border-color:#2e6b52;color:#9fe2c4;background:#11251f}
 .btn.sm{padding:4px 10px;font-size:12px}
 
 main{max-width:1440px;margin:0 auto;padding:20px 24px 40px}
@@ -166,10 +167,15 @@ footer{color:var(--muted);font-size:12px;text-align:center;margin-top:24px}
 .lic.ok{color:#6fd1a5;border-color:#1f4d3d;background:#11251f}.lic.warn{color:#f3d48a;border-color:#5a4a20;background:#2a2414}
 .lic.bad{color:#ff9aa7;border-color:#4a2530;background:#211419}
 .ldialog{max-width:520px}
+.chk{display:flex;gap:10px;align-items:flex-start;font-size:13px;color:var(--text2);cursor:pointer;margin-top:4px}.chk input{margin-top:3px;accent-color:var(--accent)}
 .tgsteps{margin:0 0 12px;padding-left:20px;color:var(--text2);line-height:1.6}.tgsteps li{margin-bottom:6px}
 .tgsteps a{color:var(--accent)}.tgsteps code,.wbody code{background:#0d1119;border:1px solid var(--line2);border-radius:5px;padding:1px 5px;font-size:13px}
 .keyinp{font:15px var(--mono);letter-spacing:.5px;text-align:center;padding:12px}
 
+header .btn,header .brand,header .badge,header .chip,header .status{white-space:nowrap;flex-shrink:0}
+#tgm .wdialog,#secm .wdialog{overflow:auto}#tgm .wbody,#secm .wbody{overflow:visible;flex:none}
+@media (max-width:1360px){#updated{display:none}}
+@media (max-width:1100px){header .hide-md{display:none}header{flex-wrap:wrap;row-gap:8px}}
 @media (max-width:1150px){.kpis{grid-template-columns:repeat(3,1fr)}.grid{grid-template-columns:1fr}.lower{grid-template-columns:1fr}}
 @media (max-width:640px){header{flex-wrap:wrap;padding:10px 16px}main{padding:16px}.kpis{grid-template-columns:1fr 1fr}
   .chartwrap{height:320px}.kpi .v{font-size:20px}.hide-sm{display:none}}
@@ -187,11 +193,13 @@ footer{color:var(--muted);font-size:12px;text-align:center;margin-top:24px}
   <div class="spacer"></div>
   <span id="updated" class="muted hide-sm" style="font-size:12px"></span>
   <button class="lic" id="licBadge" style="display:none" onclick="openLic()"></button>
-  <button class="btn" onclick="openTg()" title="Avisos por Telegram">🔔<span class="hide-sm"> Avisos</span></button>
+  <button class="btn upd" id="btnUpd" style="display:none" onclick="openUpd()" title="Hay una versión nueva">⬆<span class="hide-md"> Actualizar</span></button>
+  <button class="btn" onclick="openTg()" title="Avisos por Telegram">🔔<span class="hide-md"> Avisos</span></button>
   <button class="btn" onclick="openWiz()">⚙ Configuración</button>
   <button id="btnStart" class="btn primary" onclick="act('start')">▶ Arrancar</button>
   <button id="btnStop" class="btn" onclick="confirmAct('stop')">■ Parar</button>
   <button class="btn ghost hide-sm" id="btnOff" title="Apagar el panel y el bot" onclick="confirmAct('shutdown')">⏻</button>
+  <button class="btn ghost" id="btnSec" style="display:none" title="Seguridad: verificación en dos pasos" onclick="openSec()">🔒</button>
   <button class="btn ghost" id="btnLogout" style="display:none" title="Cerrar sesión" onclick="logout()">Salir</button>
 </header>
 
@@ -230,7 +238,8 @@ footer{color:var(--muted);font-size:12px;text-align:center;margin-top:24px}
     <div class="eq"><canvas id="equity"></canvas></div></div>
 
   <div class="lower">
-    <div class="card"><div class="hd"><h2>Operaciones cerradas</h2><div class="spacer"></div><span class="muted" id="tradesN" style="font-size:12px"></span></div>
+    <div class="card"><div class="hd"><h2>Operaciones cerradas</h2><div class="spacer"></div><span class="muted" id="tradesN" style="font-size:12px"></span>
+      <a class="btn sm" href="/api/trades/export" download title="Descargar el historial para Excel (p. ej. para la declaración de la renta)" style="text-decoration:none;margin-left:8px">⬇ Excel</a></div>
       <div class="tablewrap"><table><thead><tr><th>Salida (UTC)</th><th>Par</th><th class="r">Entrada</th><th class="r">Salida</th><th>Motivo</th><th class="r">Resultado</th><th class="r q">USDT</th></tr></thead>
       <tbody id="trades"></tbody></table></div></div>
     <div class="card"><div class="hd"><h2>Registro</h2><div class="spacer"></div><span class="muted" style="font-size:12px">bot.log</span></div><div class="log" id="log"></div></div>
@@ -252,6 +261,13 @@ footer{color:var(--muted);font-size:12px;text-align:center;margin-top:24px}
   <div class="whead"><div><h3>🔔 Avisos por Telegram</h3><p class="muted">Recibe en el móvil cada compra, venta y problema</p></div>
     <button class="xbtn" onclick="closeTg()" title="Cerrar">✕</button></div>
   <div class="wbody" id="tgBody" style="min-height:0"></div>
+  <div class="wbody" id="hcBody" style="min-height:0;border-top:1px solid var(--line)"></div>
+</div></div>
+
+<div class="modal" id="secm"><div class="wdialog ldialog">
+  <div class="whead"><div><h3>🔒 Verificación en dos pasos</h3><p class="muted">Además de la contraseña, un código del móvil para entrar</p></div>
+    <button class="xbtn" onclick="closeSec()" title="Cerrar">✕</button></div>
+  <div class="wbody" id="secBody" style="min-height:0"></div>
 </div></div>
 
 <div class="modal" id="wiz"><div class="wdialog">
@@ -336,7 +352,7 @@ async function refresh(){
   $('kTradesS').innerHTML = s.trades_count ? `acierto ${nf(s.win_rate*100,0)} % · <span class="${cls(s.pnl_closed)}">${s.pnl_closed>0?'+':''}${nf(s.pnl_closed)} ${s.quote}</span>` : 'aún ninguna';
 
   renderLicBadge(s.license);
-  $('btnOff').style.display = s.remote ? 'none' : ''; $('btnLogout').style.display = s.remote ? '' : 'none';
+  $('btnOff').style.display = s.remote ? 'none' : ''; $('btnLogout').style.display = s.remote ? '' : 'none'; $('btnSec').style.display = s.remote ? '' : 'none';
   if(s.remote) $('foot').textContent = 'El bot funciona en tu servidor las 24 horas, aunque cierres esta pestaña. · Herramienta personal, no es asesoramiento financiero.';
   if(!S.symbol) S.symbol = s.symbols[0];
   renderTabs(s); renderPositions(s); renderStrategy(s); drawEquity(s.equity_history);
@@ -544,10 +560,91 @@ async function licAct(what){
   catch(e){ renderLic(e.message); }
 }
 
+/* ---------- verificación en dos pasos ---------- */
+const SEC = {st:null, setup:null, busy:false};
+async function openSec(){ $('secm').classList.add('show'); SEC.setup=null; $('secBody').innerHTML='<div class="empty"><span class="spin"></span>Cargando…</div>';
+  try{ SEC.st = await get('/api/security'); }catch(e){ SEC.st={totp:false}; } renderSec(); }
+function closeSec(){ $('secm').classList.remove('show'); }
+function renderSec(msg, ok){
+  const st=SEC.st||{}, b=SEC.busy;
+  const note = msg ? `<div class="note ${ok?'ok':'bad'}" style="margin:0 0 14px">${esc(msg)}</div>` : '';
+  const codeIn = `<input class="inp keyinp" id="secCode" inputmode="numeric" autocomplete="one-time-code" maxlength="7" placeholder="Código de 6 cifras" style="max-width:220px">`;
+  if(st.totp){
+    $('secBody').innerHTML = note+`<p style="margin:0 0 12px;color:var(--text2)">✓ <b>Activada.</b> Al entrar se pide la contraseña y el código de tu app.</p>
+      <p class="muted" style="font-size:13px;margin:0 0 8px">Para desactivarla, escribe un código actual:</p>
+      <div style="display:flex;gap:8px;align-items:center">${codeIn}<button class="btn danger" onclick="secAct('disable')" ${b?'disabled':''}>Desactivar</button></div>`;
+  } else if(SEC.setup){
+    const sec = SEC.setup.secret.replace(/(.{4})/g,'$1 ').trim();
+    $('secBody').innerHTML = note+`<ol class="tgsteps">
+      <li>Instala en el móvil <b>Google Authenticator</b>, <b>Microsoft Authenticator</b> o <b>Authy</b>.</li>
+      <li><b>Si estás en el móvil:</b> <a href="${esc(SEC.setup.uri)}"><b>toca aquí para añadir la cuenta</b></a>.<br>
+          <b>Si estás en el PC:</b> en la app pulsa <b>+</b> → <i>Introducir clave de configuración</i>, nombre <i>Valorize Bot</i> y esta clave (basada en tiempo):
+          <div class="num" style="margin:8px 0;padding:10px 12px;background:#0d1119;border:1px solid var(--line2);border-radius:8px;font-size:15px;letter-spacing:.5px;user-select:all;word-break:break-all">${esc(sec)}</div></li>
+      <li>Escribe el código de 6 cifras que muestra la app:</li></ol>
+      <div style="display:flex;gap:8px;align-items:center">${codeIn}<button class="btn primary" onclick="secAct('confirm')" ${b?'disabled':''}>${b?'<span class="spin"></span>':''}Activar</button></div>
+      <p class="muted" style="font-size:12px;margin-top:12px">⚠️ Guarda la clave en un sitio seguro: si pierdes el móvil, la necesitarás para volver a entrar (o desactivarla desde el servidor).</p>`;
+  } else {
+    $('secBody').innerHTML = note+`<p style="margin:0 0 12px;color:var(--text2)">Aunque alguien averigüe tu contraseña, no podrá entrar sin el código que genera tu móvil cada 30 segundos. <b>Muy recomendable antes de usar dinero real.</b></p>
+      <div style="display:flex;justify-content:flex-end"><button class="btn primary" onclick="secAct('begin')" ${b?'disabled':''}>Configurar</button></div>`;
+  }
+  setTimeout(()=>{ const c=$('secCode'); if(c){ c.focus(); c.onkeydown=e=>{ if(e.key==='Enter') secAct(st.totp?'disable':'confirm'); }; } }, 50);
+}
+async function secAct(what){
+  if(what==='disable' && !confirm('¿Desactivar la verificación en dos pasos?')) return;
+  const code = $('secCode') ? $('secCode').value : '';
+  SEC.busy=true; renderSec();
+  try{ const r = await postJSON('/api/security/totp/'+what, {code}); SEC.busy=false;
+    if(what==='begin'){ SEC.setup=r; renderSec(); return; }
+    SEC.st.totp = r.totp; SEC.setup=null;
+    renderSec(r.totp?'✓ Activada. La próxima vez que entres te pedirá el código.':'Verificación en dos pasos desactivada.', true); }
+  catch(e){ SEC.busy=false; renderSec(e.message, false); }
+}
+
+/* ---------- actualizar (servidor) ---------- */
+let UPD = null;
+async function checkUpd(){ try{ UPD = await get('/api/update'); $('btnUpd').style.display = UPD.available&&UPD.pending ? '' : 'none'; }catch(e){} }
+function openUpd(){
+  const list = (UPD.changes||[]).map(c=>'• '+esc(c)).join('<br>');
+  $('mTitle').textContent = '⬆ Actualizar Valorize Bot';
+  $('mText').innerHTML = `Hay <b>${UPD.pending}</b> novedad${UPD.pending>1?'es':''}:<br><span style="display:block;margin:8px 0">${list}</span>El panel se reiniciará (unos 30 segundos). Si el bot está en marcha, sigue solo después. Tus ajustes, claves y operaciones no se tocan.`;
+  $('mOk').textContent = 'Actualizar ahora';
+  $('mOk').onclick = async ()=>{ closeModal(); toast('Actualizando… el panel volverá en unos segundos');
+    try{ const r = await postJSON('/api/update/apply',{}); if(!r.updated){ toast('Ya tenías la última versión'); return; } }
+    catch(e){ toast('No se pudo actualizar: '+e.message); return; }
+    $('btnUpd').style.display='none';
+    const t0=Date.now(); const wait = async ()=>{ await new Promise(r=>setTimeout(r,3000));
+      try{ const r = await fetch('/api/status',{cache:'no-store'}); if(r.ok||r.status===401){ location.reload(); return; } }catch(e){}
+      if(Date.now()-t0<120000) wait(); else toast('El panel tarda en volver: recarga la página en un minuto.'); };
+    wait(); };
+  $('modal').classList.add('show');
+}
+
 /* ---------- avisos por Telegram ---------- */
 const TG = {st:null, pending:null, busy:false};
-async function openTg(){ $('tgm').classList.add('show'); $('tgBody').innerHTML='<div class="empty"><span class="spin"></span>Cargando…</div>';
-  try{ TG.st = await get('/api/telegram'); }catch(e){ TG.st = {configured:false}; } TG.pending=null; renderTg(); }
+async function openTg(){ $('tgm').classList.add('show'); $('tgBody').innerHTML='<div class="empty"><span class="spin"></span>Cargando…</div>'; $('hcBody').innerHTML='';
+  try{ TG.st = await get('/api/telegram'); }catch(e){ TG.st = {configured:false}; } TG.pending=null; renderTg();
+  try{ HC.st = await get('/api/health'); }catch(e){ HC.st = {configured:false, backups:[]}; } renderHc(); }
+const HC = {st:null, busy:false};
+function renderHc(msg, ok){
+  const st=HC.st||{}, b=HC.busy;
+  const note = msg ? `<div class="note ${ok?'ok':'bad'}" style="margin:0 0 12px">${esc(msg)}</div>` : '';
+  const bk = (st.backups||[]).length ? `<p class="muted" style="font-size:12px;margin:14px 0 0">💾 Copias de seguridad automáticas (una al día, se guardan ${st.backups.length>=14?'las últimas 14':st.backups.length}): última del ${esc(st.backups[0])}.</p>` : '';
+  $('hcBody').innerHTML = `<h3 style="margin:0 0 4px;font-size:15px">🚨 Aviso si el bot deja de funcionar</h3>`+note+(st.configured ?
+    `<p style="margin:6px 0 0;color:var(--text2)">✓ Activado: cada 5 minutos el bot avisa a <b>${esc(st.host)}</b> de que sigue vivo. Si se cae el servidor o el bot se atasca, te llegará un aviso.</p>
+     <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:12px"><button class="btn danger" onclick="hcSet('')" ${b?'disabled':''}>Desactivar</button></div>` :
+    `<p class="muted" style="margin:6px 0 10px;font-size:13px">Telegram no te puede avisar si el servidor entero se apaga. Para eso, un servicio externo gratuito vigila que el bot dé señales de vida:</p>
+     <ol class="tgsteps"><li>Crea una cuenta gratis en <a href="https://healthchecks.io" target="_blank" rel="noopener"><b>healthchecks.io</b> ↗</a>.</li>
+     <li>Pulsa <b>Add Check</b>, pon <i>Period</i> 5 minutos y <i>Grace</i> 15 minutos, y guarda.</li>
+     <li>Copia su <b>Ping URL</b> (empieza por <code>https://hc-ping.com/…</code>) y pégala aquí. En <i>Integrations</i> puedes elegir que te avise por email o Telegram.</li></ol>
+     <input class="inp keyinp" id="hcUrl" placeholder="https://hc-ping.com/..." autocomplete="off" spellcheck="false">
+     <div style="display:flex;justify-content:flex-end;margin-top:12px"><button class="btn primary" onclick="hcSet($('hcUrl').value)" ${b?'disabled':''}>${b?'<span class="spin"></span>Probando…':'Activar'}</button></div>`)+bk;
+}
+async function hcSet(url){
+  if(!url && HC.st&&HC.st.configured && !confirm('¿Desactivar el aviso de caída?')) return;
+  HC.busy=true; renderHc();
+  try{ HC.st = await postJSON('/api/health/set',{url:(url||'').trim()}); HC.busy=false; renderHc(HC.st.configured?'✓ Conectado. Ya debería verse «up» en healthchecks.io.':'Aviso de caída desactivado.', true); }
+  catch(e){ HC.busy=false; renderHc(e.message, false); }
+}
 function closeTg(){ $('tgm').classList.remove('show'); }
 function renderTg(msg, ok){
   const st = TG.st||{}, b = TG.busy;
@@ -610,7 +707,7 @@ async function openWiz(first){
   try{ W.setup = await get('/api/setup'); }catch(e){ $('wBody').innerHTML='<div class="note bad">No se pudo cargar: '+esc(e.message)+'</div>'; return; }
   const c = W.setup.current;
   W.d = {exchange:c.exchange, mode:c.mode, testnet:c.testnet, credentials:{}, symbols:[...c.symbols], timeframe:c.timeframe,
-         risk_per_trade:c.risk_per_trade, paper_balance:c.paper_balance};
+         risk_per_trade:c.risk_per_trade, paper_balance:c.paper_balance, market_filter:c.market_filter!==false};
   W.step=0; W.markets=null; W.test=null; W.search='';
   $('wTitle').textContent = first ? 'Bienvenido 👋' : 'Configuración';
   $('wSub').textContent = first ? 'Conecta tu exchange y elige qué monedas operar. Tardas 2 minutos.' : 'Exchange, modo, claves y monedas';
@@ -707,6 +804,10 @@ async function stepCoins(){
   }
   renderCoins();
 }
+const RECOMMENDED = ['BTC','ETH','SOL','BNB','XRP','LINK'];
+function pickRecommended(){ const have=new Set(W.markets.markets.map(m=>m.symbol));
+  const r = RECOMMENDED.map(b=>b+'/'+W.quote).filter(s=>have.has(s));
+  if(r.length) W.d.symbols = [...new Set([...W.d.symbols.filter(s=>!r.includes(s)), ...r])].slice(0,10); renderCoins(); }
 function setQuote(q){ W.quote=q; W.d.symbols=W.d.symbols.filter(s=>s.endsWith('/'+q)); if(!W.d.symbols.length && W.markets.markets.some(m=>m.symbol==='BTC/'+q)) W.d.symbols=['BTC/'+q]; renderCoins(); }
 function toggleSym(s){ const i=W.d.symbols.indexOf(s); if(i>=0) W.d.symbols.splice(i,1); else if(W.d.symbols.length<10) W.d.symbols.push(s); renderCoins(true); }
 function renderCoins(keepFocus){
@@ -717,11 +818,15 @@ function renderCoins(keepFocus){
   const quotes = W.markets.quotes.slice(0,8);
   const html = `<div class="row2"><div><div class="field"><label>Moneda de cuenta</label><div class="seg">${quotes.map(x=>`<button class="${x.quote===q?'on':''}" onclick="setQuote('${x.quote}')">${x.quote}</button>`).join('')}</div></div></div>
      <div><div class="field"><label>Velas</label><div class="seg">${W.info.timeframes.map(tf=>`<button class="${tf===d.timeframe?'on':''}" onclick="W.d.timeframe='${tf}';renderCoins()">${{'1h':'1 hora','4h':'4 horas','1d':'1 día'}[tf]}</button>`).join('')}</div></div></div></div>
-    <div class="field"><label>Monedas que operará el bot (${d.symbols.length}/10)</label><div class="sel-chips">${d.symbols.length?d.symbols.map(s=>`<span class="schip">${esc(s)}<button onclick="toggleSym('${s}')" title="Quitar">✕</button></span>`).join(''):'<span class="muted" style="font-size:13px">Elige al menos una de la lista.</span>'}</div>
+    <div class="field"><label style="display:flex;align-items:center;gap:8px">Monedas que operará el bot (${d.symbols.length}/10)
+        <button class="btn sm" style="margin-left:auto" onclick="pickRecommended()" title="${RECOMMENDED.join(', ')}">⭐ Recomendadas</button></label>
+      ${d.symbols.length<4?'<p class="muted" style="font-size:12px;margin:0 0 8px">💡 Con 5–8 monedas el bot opera más a menudo y una racha mala en una sola pesa menos. «Recomendadas» elige 6 de las más líquidas.</p>':''}<div class="sel-chips">${d.symbols.length?d.symbols.map(s=>`<span class="schip">${esc(s)}<button onclick="toggleSym('${s}')" title="Quitar">✕</button></span>`).join(''):'<span class="muted" style="font-size:13px">Elige al menos una de la lista.</span>'}</div>
       <input class="inp" id="msearch" placeholder="Buscar moneda (BTC, ETH, SOL…)" value="${esc(W.search)}" oninput="W.search=this.value;renderCoins(true)">
       <div class="mlist">${list.map(m=>`<button class="mitem ${d.symbols.includes(m.symbol)?'on':''}" onclick="toggleSym('${m.symbol}')">${esc(m.base)}<span class="muted">/${esc(m.quote)}</span></button>`).join('')||'<span class="muted">Nada que coincida.</span>'}</div></div>
     <div class="field"><label>Riesgo máximo por operación</label><div class="seg">${[0.005,0.01,0.02].map(r=>`<button class="${Math.abs(r-d.risk_per_trade)<1e-9?'on':''}" onclick="W.d.risk_per_trade=${r};renderCoins()">${nf(r*100,1)} %${r===0.01?' · recomendado':''}</button>`).join('')}</div>
-      <p class="muted" style="font-size:12px;margin:6px 0 0">Si salta el stop, como mucho pierdes este % de tu capital en esa operación.</p></div>`;
+      <p class="muted" style="font-size:12px;margin:6px 0 0">Si salta el stop, como mucho pierdes este % de tu capital en esa operación.</p></div>
+    <label class="chk"><input type="checkbox" ${d.market_filter?'checked':''} onchange="W.d.market_filter=this.checked">
+      <span><b>Filtro de mercado</b> (recomendado): no comprar otras monedas mientras BTC esté en tendencia bajista (bajo su media de 200 velas). En las caídas, casi todas caen juntas.</span></label>`;
   const pos = $('msearch') ? $('msearch').selectionStart : null;
   $('wBody').innerHTML = html;
   if(keepFocus && pos!=null){ const m=$('msearch'); m.focus(); m.setSelectionRange(pos,pos); }
@@ -742,7 +847,8 @@ function stepSummary(){
     <span>Claves</span><span>${d.mode==='paper'?'No hacen falta':(W.test&&W.test.ok?'✓ Probadas':'Guardadas')}</span>
     <span>Monedas</span><span>${d.symbols.map(esc).join(', ')}</span>
     <span>Velas</span><span>${{'1h':'1 hora','4h':'4 horas','1d':'1 día'}[d.timeframe]}</span>
-    <span>Riesgo por operación</span><span>${nf(d.risk_per_trade*100,1)} %</span></div>${notes}`;
+    <span>Riesgo por operación</span><span>${nf(d.risk_per_trade*100,1)} %</span>
+    <span>Filtro de mercado</span><span>${d.market_filter?'Activado (BTC)':'Desactivado'}</span></div>${notes}`;
 }
 async function wGo(dir){
   const d=W.d;
@@ -759,11 +865,12 @@ async function wGo(dir){
 }
 
 window.addEventListener('resize', ()=>{ drawChart(); if(S.status) drawEquity(S.status.equity_history); });
-document.addEventListener('keydown', e=>{ if(e.key==='Escape'){ closeModal(); closeLic(); closeTg(); } });
+document.addEventListener('keydown', e=>{ if(e.key==='Escape'){ closeModal(); closeLic(); closeTg(); closeSec(); } });
 (async()=>{ await refresh(); loadChart(); loadTables();
   try{ const st = await get('/api/setup'); if(!st.configured) openWiz(true); }catch(e){} })();
 setInterval(()=>{ refresh().then(()=>drawChart()); }, 5000);
 setInterval(loadTables, 10000);
+checkUpd(); setInterval(checkUpd, 6*3600*1000);
 setInterval(()=>loadChart(), 30000);
 </script>
 </body>

@@ -28,6 +28,8 @@ button:disabled{opacity:.6;cursor:wait}
   <div class="brand"><div class="logo"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#1a1305" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17l6-6 4 4 8-8"/><path d="M15 7h6v6"/></svg></div>Valorize Bot</div>
   <label for="pw">Contraseña</label>
   <input id="pw" type="password" autocomplete="current-password" autofocus required>
+  <div id="codeBox" style="display:none;margin-top:12px"><label for="code">Código de verificación</label>
+    <input id="code" inputmode="numeric" autocomplete="one-time-code" maxlength="7" placeholder="123 456"></div>
   <button id="b" type="submit">Entrar</button>
   <div class="err" id="err" role="alert"></div>
   <div class="foot">🔒 Conexión cifrada · acceso privado</div>
@@ -38,12 +40,15 @@ document.getElementById('f').addEventListener('submit', async ev=>{
   b.disabled=true; err.textContent='';
   try{
     const r = await fetch('/api/login',{method:'POST',headers:{'X-Panel':'1','Content-Type':'application/json'},
-      body:JSON.stringify({password:document.getElementById('pw').value})});
+      body:JSON.stringify({password:document.getElementById('pw').value, code:document.getElementById('code').value})});
     const j = await r.json().catch(()=>({}));
     if(r.ok && j.ok){ location.href='/'; return; }
+    if(j.need_code){ document.getElementById('codeBox').style.display=''; document.getElementById('code').focus();
+      err.textContent = ''; b.disabled=false; return; }
     err.textContent = j.error || 'No se pudo iniciar sesión.';
   }catch(e){ err.textContent='Sin conexión con el servidor.'; }
-  b.disabled=false; document.getElementById('pw').select();
+  b.disabled=false; const cb=document.getElementById('codeBox');
+  (cb.style.display==='none' ? document.getElementById('pw') : document.getElementById('code')).select();
 });
 </script>
 </body>

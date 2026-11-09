@@ -30,12 +30,14 @@ import time
 from datetime import datetime, timezone
 from pathlib import Path
 
+import pandas as pd
 import requests
 
 import exchange as xch
 import licensing
 from config import CONFIG
-from strategy import add_signals, describe, exit_levels, initial_stop, position_spend, warmup_candles
+from strategy import (add_signals, describe, exit_levels, initial_stop, market_ok, market_reference,
+                      position_spend, warmup_candles)
 
 STATE_FILE = Path("state.json")
 TRADES_FILE = Path("trades_log.csv")
@@ -142,6 +144,29 @@ def read_trades() -> list:
         return []
     with TRADES_FILE.open(encoding="utf-8", newline="") as f:
         return list(csv.DictReader(f))
+
+
+def export_trades_csv() -> bytes:
+    """Historial listo para abrir con Excel en español (punto y coma, coma decimal, UTF-8 con BOM)."""
+    import io
+    cols = [("entrada", "Entrada (UTC)"), ("salida", "Salida (UTC)"), ("par", "Par"),
+            ("precio_entrada", "Precio de entrada"), ("precio_salida", "Precio de salida"),
+            ("cantidad", "Cantidad"), ("importe_entrada", "Importe de compra"), ("importe_salida", "Importe de venta"),
+            ("pnl_usdt", "Resultado"), ("pnl_pct", "Resultado %"), ("motivo", "Motivo"), ("modo", "Modo")]
+    num = lambda v: "" if v in (None, "") else str(v).replace(".", ",")
+    out = io.StringIO()
+    w = csv.writer(out, delimiter=";", lineterminator="\r\n")
+    w.writerow([label for _, label in cols])
+    for t in read_trades():
+        try:
+            qty, pin, pout = float(t["cantidad"]), float(t["precio_entrada"]), float(t["precio_salida"])
+            t = {**t, "importe_entrada": round(qty * pin, 2), "importe_salida": round(qty * pout, 2),
+                 "pnl_pct": round(float(t["pnl_pct"]) * 100, 3)}
+        except (TypeError, ValueError, KeyError):
+            pass
+        w.writerow([num(t.get(k)) if k not in ("entrada", "salida", "par", "motivo", "modo") else t.get(k, "")
+                    for k, _ in cols])
+    return ("\ufeff" + out.getvalue()).encode("utf-8")
 
 
 def append_trade(row: dict):
@@ -324,6 +349,8 @@ class Engine:
         self.thread = None
         self._stop_event = threading.Event()
         self.prices, self.frames, self.signals = {}, {}, {}
+        self._market_cache = {}
+        self.last_cycle_ts, self.started_ts = None, None
         self.last_error, self.last_cycle, self.last_equity = None, None, None
 
     # --- conexión ---
@@ -415,7 +442,7 @@ class Engine:
         if s["last_candle"].get(sym) == last_ts:
             return
         s["last_candle"][sym] = last_ts
-        sig_df = add_signals(df, cfg)
+        sig_df = add_signals(df, cfg, self._market(sym, last_ts))
         self.frames[sym] = sig_df
         sig = int(sig_df["signal"].iloc[-1])
         self.signals[sym] = sig
@@ -426,6 +453,26 @@ class Engine:
             self._open(sym, price, float(atr_v) if atr_v == atr_v else 0.0)
         elif sig == -1 and pos:
             self._close(sym, price, "cruce bajista")
+
+    def _market(self, sym, last_ts):
+        """Filtro de mercado para `sym` (velas de la moneda de referencia), o None si no aplica."""
+        ref = market_reference(sym, self.cfg)
+        if not ref or ref not in getattr(self.ex, "markets", {ref: 1}):
+            return None
+        cached = self._market_cache.get(ref)
+        if cached and cached[0] == last_ts:
+            return cached[1]
+        try:
+            rdf = xch.fetch_closed_candles(self.ex, ref, self.cfg.timeframe, warmup_candles(self.cfg))
+        except Exception as e:                 # sin datos de la referencia: mejor no comprar
+            log.warning(f"No se pudieron leer las velas de {ref} para el filtro de mercado: {e}")
+            return pd.Series(dtype=bool)
+        ok = market_ok(rdf, self.cfg)
+        self._market_cache[ref] = (int(rdf["ts"].iloc[-1]), ok)
+        if not bool(ok.iloc[-1]):
+            log.info(f"Filtro de mercado: {ref} está bajo su media de {self.cfg.market_filter_ma} velas; "
+                     f"no se abren compras en otras monedas.")
+        return ok
 
     def step(self):
         cfg, s, b = self.cfg, self.state, self.broker
@@ -452,6 +499,7 @@ class Engine:
             del hist[:-2000]
         self._daily_summary(eq)
         self.last_cycle, self.last_error = now_iso(), None
+        self.last_cycle_ts = time.time()
 
     def _daily_summary(self, eq):
         s = self.state
@@ -504,6 +552,7 @@ class Engine:
             self._stop_event = threading.Event()
         notify(f"🤖 Valorize Bot iniciado | {getattr(self.ex, 'name', self.cfg.exchange)} | {', '.join(self.cfg.symbols)} {self.cfg.timeframe} | {describe(self.cfg)} | "
                f"modo {self.cfg.mode}{' (testnet)' if self.cfg.testnet else ''}", self.cfg)
+        self.started_ts = time.time()
         if background:
             self.thread = threading.Thread(target=self._loop, name="bot", daemon=True)
             self.thread.start()

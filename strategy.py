@@ -3,6 +3,7 @@
 ENTRADA (+1): la media rápida cruza por ENCIMA de la lenta y, si están activados:
   - filtro de tendencia: el precio está sobre la media larga (p. ej. 200 velas)
   - filtro ADX: hay tendencia suficiente (ADX >= adx_min), para evitar mercados laterales
+  - filtro de mercado: para monedas distintas de BTC, BTC está sobre su media larga
 SALIDA (-1): la media rápida cruza por DEBAJO de la lenta.
 Además: stop inicial, stop dinámico (trailing) y take profit opcional (ver exit_levels).
 
@@ -54,7 +55,23 @@ def warmup_candles(cfg) -> int:
 
 
 # ---------- señales ----------
-def add_signals(df: pd.DataFrame, cfg) -> pd.DataFrame:
+def market_reference(symbol: str, cfg):
+    """Par de referencia del filtro de mercado (p. ej. BTC/USDT para ETH/USDT), o None si no aplica."""
+    base, quote = symbol.split("/")[0], symbol.split("/")[1]
+    ref = (cfg.market_filter or "").upper()
+    if not ref or not cfg.market_filter_ma or base == ref or quote == ref:
+        return None
+    return f"{ref}/{quote}"
+
+
+def market_ok(ref_df: pd.DataFrame, cfg) -> pd.Series:
+    """True en las velas en que la moneda de referencia cierra sobre su media larga."""
+    ma = moving_average(ref_df["close"], cfg.market_filter_ma, cfg.ma_type)
+    return (ref_df["close"] > ma).rename("market_ok")
+
+
+def add_signals(df: pd.DataFrame, cfg, market: pd.Series = None) -> pd.DataFrame:
+    """`market`: resultado de market_ok() de la moneda de referencia (None = sin filtro de mercado)."""
     if cfg.fast >= cfg.slow:
         raise ValueError("La media rápida debe ser menor que la lenta")
     df = df.copy()
@@ -77,6 +94,9 @@ def add_signals(df: pd.DataFrame, cfg) -> pd.DataFrame:
         allow &= df["adx"] >= cfg.adx_min
     if cfg.stop_mode == "atr":
         allow &= df["atr"].notna()
+    if market is not None:                             # sin dato de la referencia: no entra
+        df["market_ok"] = market.reindex(df.index, method="ffill").fillna(False).astype(bool)
+        allow &= df["market_ok"]
 
     df["signal"] = 0
     df.loc[cross_up & allow, "signal"] = 1
@@ -130,6 +150,8 @@ def describe(cfg) -> str:
         parts.append(f"tendencia>{cfg.trend_filter}")
     if cfg.adx_min:
         parts.append(f"ADX≥{cfg.adx_min:g}")
+    if cfg.market_filter and cfg.market_filter_ma:
+        parts.append(f"filtro {cfg.market_filter.upper()}>{cfg.market_filter_ma}")
     if cfg.stop_mode == "atr":
         parts.append(f"stop {cfg.atr_stop_mult:g}×ATR" if cfg.atr_stop_mult else "sin stop")
         if cfg.atr_trail_mult:
