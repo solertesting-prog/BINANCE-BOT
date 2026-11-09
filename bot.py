@@ -36,8 +36,8 @@ import requests
 import exchange as xch
 import licensing
 from config import CONFIG
-from strategy import (add_signals, describe, exit_levels, initial_stop, market_ok, market_reference,
-                      position_spend, warmup_candles)
+from strategy import (add_signals, describe, entry_kind, exit_levels, explain, initial_stop, market_ok,
+                      market_reference, position_spend, should_exit, warmup_candles)
 
 STATE_FILE = Path("state.json")
 TRADES_FILE = Path("trades_log.csv")
@@ -373,6 +373,7 @@ class Engine:
         self._stop_event = threading.Event()
         self.prices, self.frames, self.signals = {}, {}, {}
         self._market_cache = {}
+        self.regimes, self.explain = {}, {}
         self.last_cycle_ts, self.started_ts = None, None
         self.last_error, self.last_cycle, self.last_equity = None, None, None
 
@@ -425,7 +426,7 @@ class Engine:
         self.notify(f"🔴 VENTA {sym} {pos['qty']:.6f} a {fill:.2f} | {reason} | {pnl_pct:+.2%} "
                f"({pnl_usdt:+.2f} {self.cfg.quote}) [{self.cfg.mode}]", self.cfg)
 
-    def _open(self, sym, price, atr_value):
+    def _open(self, sym, price, atr_value, kind="trend"):
         cfg, b, s = self.cfg, self.broker, self.state
         if len(s["positions"]) >= cfg.max_open_positions:
             self.log.info(f"Señal de compra en {sym} ignorada: ya hay {len(s['positions'])} posiciones abiertas")
@@ -437,12 +438,13 @@ class Engine:
             return
         qty, fill = b.buy(sym, spend, price)
         pos = {"qty": qty, "entry": fill, "peak": fill, "atr": atr_value, "entry_time": now_iso(),
-               "spent": spend, "stop_order": None}
+               "spent": spend, "stop_order": None, "kind": kind}
         s["positions"][sym] = pos
         stop, _, _ = exit_levels(fill, fill, atr_value, cfg)
         pos["stop_order"] = b.place_stop(sym, qty, stop)
-        self.notify(f"🟢 COMPRA {sym} {qty:.6f} a {fill:.2f} ({spend:.2f} {cfg.quote}) | stop {stop:.2f} "
-               f"[{cfg.mode}]" if stop else f"🟢 COMPRA {sym} {qty:.6f} a {fill:.2f} [{cfg.mode}]", cfg)
+        why = "rebote en mercado lateral" if kind == "range" else "cruce alcista"
+        self.notify(f"🟢 COMPRA {sym} {qty:.6f} a {fill:.2f} ({spend:.2f} {cfg.quote}) | {why} | stop {stop:.2f} "
+                    f"[{cfg.mode}]" if stop else f"🟢 COMPRA {sym} {qty:.6f} a {fill:.2f} | {why} [{cfg.mode}]", cfg)
 
     def _manage(self, sym, price):
         cfg, b, s = self.cfg, self.broker, self.state
@@ -473,6 +475,8 @@ class Engine:
         df = xch.fetch_closed_candles(self.ex, sym, cfg.timeframe, warmup_candles(cfg))
         last_ts = int(df["ts"].iloc[-1])
         if s["last_candle"].get(sym) == last_ts:
+            if sym not in self.explain:        # tras un reinicio: explica sin volver a operar
+                self._explain(sym, add_signals(df, cfg, self._market(sym, last_ts)))
             return
         s["last_candle"][sym] = last_ts
         sig_df = add_signals(df, cfg, self._market(sym, last_ts))
@@ -481,11 +485,25 @@ class Engine:
         self.signals[sym] = sig
         self.log.info(f"{sym} vela {df.index[-1]:%Y-%m-%d %H:%M} cerrada | precio {price:.2f} | señal {sig}")
 
-        if sig == 1 and not pos and not exited:
+        kind = entry_kind(sig)
+        if kind and not pos and not exited:
             atr_v = sig_df["atr"].iloc[-1]
-            self._open(sym, price, float(atr_v) if atr_v == atr_v else 0.0)
-        elif sig == -1 and pos:
-            self._close(sym, price, "cruce bajista")
+            self._open(sym, price, float(atr_v) if atr_v == atr_v else 0.0, kind)
+        elif pos:
+            reason = should_exit(pos.get("kind", "trend"), sig_df.iloc[-1])
+            if reason:
+                self._close(sym, price, reason)
+        self._explain(sym, sig_df)
+
+    def _explain(self, sym, sig_df):
+        """Guarda, para el panel y Telegram, el tipo de mercado y qué piensa el bot de la moneda."""
+        try:
+            pos = self.state["positions"].get(sym)
+            stop = exit_levels(pos["entry"], pos["peak"], pos["atr"], self.cfg)[0] if pos else None
+            self.regimes[sym] = str(sig_df["regime"].iloc[-1])
+            self.explain[sym] = explain(sig_df, self.cfg, pos, stop)
+        except Exception as e:                 # una explicación nunca debe parar el bot
+            self.log.warning(f"No se pudo explicar {sym}: {e}")
 
     def _market(self, sym, last_ts):
         """Filtro de mercado para `sym` (velas de la moneda de referencia), o None si no aplica."""
@@ -670,6 +688,7 @@ class Engine:
             "cash": cash, "positions": positions, "max_positions": cfg.max_open_positions,
             "trades_count": len(trades), "win_rate": wins / len(trades) if trades else None,
             "pnl_closed": pnl_closed, "prices": self.prices, "signals": self.signals,
+            "regimes": self.regimes, "explain": self.explain,
             "last_cycle": self.last_cycle, "last_error": self.last_error,
             "equity_history": s["equity_history"][-500:], "now": now_iso(),
             "license": licensing.status(),

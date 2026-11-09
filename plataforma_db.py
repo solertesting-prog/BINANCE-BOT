@@ -76,6 +76,10 @@ class DB:
         self.conn.row_factory = sqlite3.Row
         self.conn.execute("PRAGMA journal_mode=WAL")
         self.conn.executescript(SCHEMA)
+        try:                                   # columnas añadidas en versiones posteriores
+            self.conn.execute("ALTER TABLE users ADD COLUMN public_token TEXT NOT NULL DEFAULT ''")
+        except sqlite3.OperationalError:
+            pass
         self.lock = threading.Lock()
         self._fails = {}                       # clave (ip o email) -> [fallos, bloqueado hasta]
         self._totp_last = {}
@@ -101,6 +105,11 @@ class DB:
     def by_email(self, email):
         return self.q("SELECT * FROM users WHERE email=?", ((email or "").strip().lower(),), one=True)
 
+    def by_public_token(self, token):
+        if not token or len(token) < 16:
+            return None
+        return self.q("SELECT * FROM users WHERE public_token=? AND status='active'", (token,), one=True)
+
     def users(self):
         return self.q("SELECT id,email,role,status,created,last_login,totp_secret!='' AS totp,"
                       "telegram_chat!='' AS telegram FROM users ORDER BY id")
@@ -116,7 +125,7 @@ class DB:
             self.x("DELETE FROM sessions WHERE user_id=?", (uid,))
 
     def update(self, uid, **fields):
-        allowed = {"totp_secret", "telegram_token", "telegram_chat"}
+        allowed = {"totp_secret", "telegram_token", "telegram_chat", "public_token"}
         for k, v in fields.items():
             if k not in allowed:
                 raise DBError(f"Campo no permitido: {k}")

@@ -48,6 +48,36 @@ def adx(df: pd.DataFrame, n: int = 14) -> pd.Series:
     return dx.ewm(alpha=a, adjust=False, min_periods=n).mean()
 
 
+def rsi(close: pd.Series, n: int = 14) -> pd.Series:
+    """Relative Strength Index (Wilder). <30 suele indicar sobreventa; >70 sobrecompra."""
+    d = close.diff()
+    up = d.clip(lower=0).ewm(alpha=1 / n, adjust=False, min_periods=n).mean()
+    down = (-d.clip(upper=0)).ewm(alpha=1 / n, adjust=False, min_periods=n).mean()
+    return 100 - 100 / (1 + up / down.replace(0, np.nan))
+
+
+REGIME_LOOKBACK = 20      # velas para medir si la media larga sube o baja
+
+
+def regime(df: pd.DataFrame, cfg) -> pd.Series:
+    """Tipo de mercado en cada vela: "alcista", "lateral" o "bajista" ("" si faltan datos).
+
+    alcista: precio sobre la media larga y con fuerza (ADX alto).
+    lateral: sin fuerza (ADX bajo) y la media larga no está cayendo.
+    bajista: el resto (precio bajo la media larga, o media larga cayendo)."""
+    n = cfg.trend_filter or 200
+    ma = df["ma_trend"] if "ma_trend" in df else moving_average(df["close"], n, cfg.ma_type)
+    a = df["adx"] if "adx" in df else adx(df)
+    level = cfg.adx_min or 20
+    up = (df["close"] > ma) & (a >= level)
+    flat = (a < level) & (ma >= ma.shift(REGIME_LOOKBACK) * 0.98)
+    out = pd.Series("bajista", index=df.index)
+    out[flat] = "lateral"
+    out[up] = "alcista"
+    out[ma.isna() | a.isna()] = ""
+    return out
+
+
 def warmup_candles(cfg) -> int:
     """Velas de historial necesarias para que los indicadores sean fiables."""
     need = max(cfg.slow, cfg.trend_filter or 0, 3 * 14 if cfg.adx_min else 0, cfg.atr_period * 3)
@@ -98,10 +128,94 @@ def add_signals(df: pd.DataFrame, cfg, market: pd.Series = None) -> pd.DataFrame
         df["market_ok"] = market.reindex(df.index, method="ffill").fillna(False).astype(bool)
         allow &= df["market_ok"]
 
+    df["cross_up"] = cross_up
+    df["regime"] = regime(df, cfg)
     df["signal"] = 0
     df.loc[cross_up & allow, "signal"] = 1
     df.loc[cross_down, "signal"] = -1
+
+    if cfg.strategy_mode == "adaptive":
+        # Mercado lateral: compra caídas exageradas (señal 2) y vende al volver a la media.
+        mid = df["close"].rolling(cfg.bb_period).mean()
+        low = mid - cfg.bb_std * df["close"].rolling(cfg.bb_period).std(ddof=0)
+        df["rsi"], df["bb_mid"], df["bb_low"] = rsi(df["close"]), mid, low
+        dip = (df["regime"] == "lateral") & (df["close"] < low) & (df["rsi"] < cfg.rsi_buy) & df["atr"].notna()
+        if market is not None:
+            dip &= df["market_ok"]
+        df.loc[dip & (df["signal"] == 0), "signal"] = 2
+        df["range_exit"] = df["close"] >= mid
     return df
+
+
+def entry_kind(signal: int):
+    """Tipo de entrada de una señal: "trend" (1), "range" (2) o None."""
+    return {1: "trend", 2: "range"}.get(int(signal))
+
+
+def should_exit(kind: str, row) -> str:
+    """Motivo de salida por señal para una posición de ese tipo, o "" si no toca salir.
+    `row`: última vela con señales (fila de add_signals)."""
+    if kind == "range":
+        return "vuelta a la media" if bool(getattr(row, "range_exit", False)) else ""
+    return "cruce bajista" if int(row.signal) == -1 else ""
+
+
+# ---------- explicación en lenguaje llano ----------
+def _n(v, d=0):
+    return f"{v:,.{d}f}".replace(",", "X").replace(".", ",").replace("X", ".")
+
+
+def explain(df: pd.DataFrame, cfg, position: dict = None, stop: float = None) -> str:
+    """Qué piensa el bot de esta moneda tras la última vela cerrada, en una frase."""
+    r = df.iloc[-1]
+    kind, f, sl = cfg.ma_type.upper(), cfg.fast, cfg.slow
+    reg = r.get("regime", "")
+    if position:
+        k = position.get("kind", "trend")
+        pnl = r["close"] / position["entry"] - 1
+        out = (f"Mantengo la compra ({'+' if pnl > 0 else ''}{_n(pnl * 100, 1)} %). Vendería si "
+               + ("el precio vuelve a su media de 20 velas" if k == "range"
+                  else f"la media de {f} velas cruza por debajo de la de {sl}"))
+        return out + (f" o si el precio baja a {_n(stop, 2 if stop >= 10 else 4)} (stop)." if stop else ".")
+    sig = int(r["signal"])
+    if sig == 1:
+        return f"Señal de compra: la media de {f} velas acaba de cruzar por encima de la de {sl} y se cumplen los filtros."
+    if sig == 2:
+        return "Señal de compra en rango: mercado lateral y caída exagerada (precio bajo la banda inferior y RSI bajo)."
+    blocks, needs = [], []
+    if cfg.trend_filter and "ma_trend" in df and not r["close"] > r["ma_trend"]:
+        blocks.append(f"el precio está por debajo de su media de {cfg.trend_filter} velas (tendencia de fondo bajista)")
+        needs.append(f"el precio sube por encima de su media de {cfg.trend_filter} velas")
+    if cfg.adx_min and "adx" in df and not r["adx"] >= cfg.adx_min:
+        blocks.append(f"el mercado no tiene fuerza (ADX {_n(r['adx'])}, hace falta {_n(cfg.adx_min)})")
+        needs.append(f"el mercado gana fuerza (ADX {_n(r['adx'])}, hace falta {_n(cfg.adx_min)})")
+    if "market_ok" in df and not bool(r["market_ok"]):
+        blocks.append(f"{cfg.market_filter.upper()} está en tendencia bajista (filtro de mercado)")
+        needs.append(f"{cfg.market_filter.upper()} vuelve a tendencia alcista")
+    if bool(r.get("cross_up", False)) and blocks:
+        return "Hubo cruce alcista, pero no compro porque " + " y ".join(blocks) + "."
+    extra = ""
+    if cfg.strategy_mode == "adaptive":
+        if reg == "lateral" and r.get("rsi") == r.get("rsi"):
+            extra = (f" Mercado lateral: compraría en una caída exagerada (RSI por debajo de {_n(cfg.rsi_buy)}; "
+                     f"ahora {_n(r['rsi'])}).")
+        elif reg == "bajista":
+            extra = " Mercado bajista: me quedo fuera."
+    if pd.isna(r["ma_slow"]) or pd.isna(r["ma_fast"]):
+        return "Aún no tengo suficientes velas para decidir."
+    if r["ma_fast"] > r["ma_slow"]:
+        below = (~(df["ma_fast"] > df["ma_slow"]))[::-1].to_numpy()
+        ago = int(below.argmax()) if below.any() else len(df)
+        txt = (f"La tendencia corta ya es alcista (la media de {f} velas cruzó sobre la de {sl} hace {ago} velas). "
+               f"Solo compro justo en el cruce, así que espero al siguiente.")
+        if blocks:
+            txt += " Ahora mismo, además, " + " y ".join(blocks) + "."
+        return txt + extra
+    gap = (r["ma_slow"] / r["ma_fast"] - 1) * 100
+    txt = (f"No compro: la media de {f} velas está un {_n(gap, 1)} % por debajo de la de {sl}. "
+           f"Compraré cuando la cruce hacia arriba")
+    txt += (", si además " + " y ".join(needs) + "." if needs else ".")
+    return txt + extra
 
 
 # ---------- stops y tamaño ----------
@@ -146,6 +260,8 @@ def position_spend(equity: float, cash: float, price: float, stop, cfg) -> float
 
 def describe(cfg) -> str:
     parts = [f"{cfg.ma_type.upper()} {cfg.fast}/{cfg.slow}"]
+    if cfg.strategy_mode == "adaptive":
+        parts.append("adaptativa")
     if cfg.trend_filter:
         parts.append(f"tendencia>{cfg.trend_filter}")
     if cfg.adx_min:

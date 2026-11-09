@@ -29,8 +29,10 @@ import auth
 import bot
 import config as C
 import exchange as xch
+import lab as lab_mod
 import panel
 import plataforma_db as pdb
+import public_page
 import setup_api
 import telegram_setup
 
@@ -39,48 +41,13 @@ DATA = ROOT / "plataforma-datos"
 WEB = ROOT / "web"
 COOKIE = "vp_session"
 MAX_USERS = int(os.getenv("PLATFORM_MAX_USERS", "25"))
-USER_FIELDS = ("exchange", "symbols", "timeframe", "risk_per_trade", "paper_balance", "fee", "market_filter")
+USER_FIELDS = ("exchange", "symbols", "timeframe", "risk_per_trade", "paper_balance", "fee", "market_filter",
+               "strategy_mode", "fast", "slow", "adx_min")
 log = logging.getLogger("plataforma")
 
 
 # ---------- datos de mercado compartidos ----------
-class SharedMarket:
-    """Conexión PÚBLICA a un exchange compartida por todos los usuarios, con caché y bloqueo:
-    20 usuarios con BTC no hacen 20 peticiones iguales."""
-    TICKER_TTL, OHLCV_TTL = 10, 30
-
-    def __init__(self, ex):
-        self._ex, self._lock, self._cache = ex, threading.Lock(), {}
-        self._markets_loaded = False
-
-    def __getattr__(self, name):
-        return getattr(self._ex, name)
-
-    def _cached(self, key, ttl, fn):
-        with self._lock:
-            hit = self._cache.get(key)
-            if hit and time.time() - hit[0] < ttl:
-                return hit[1]
-            value = fn()
-            self._cache[key] = (time.time(), value)
-            if len(self._cache) > 2000:
-                self._cache.clear()
-            return value
-
-    def load_markets(self, *a, **k):
-        with self._lock:
-            if not self._markets_loaded:
-                self._ex.load_markets()
-                self._markets_loaded = True
-            return self._ex.markets
-
-    def fetch_ticker(self, symbol, *a, **k):
-        return self._cached(("t", symbol), self.TICKER_TTL, lambda: self._ex.fetch_ticker(symbol))
-
-    def fetch_ohlcv(self, symbol, timeframe="1m", since=None, limit=None, *a, **k):
-        return self._cached(("o", symbol, timeframe, since, limit), self.OHLCV_TTL,
-                            lambda: self._ex.fetch_ohlcv(symbol, timeframe, limit=limit) if since is None
-                            else self._ex.fetch_ohlcv(symbol, timeframe, since=since, limit=limit))
+SharedMarket = xch.SharedMarket
 
 
 _markets, _markets_lock = {}, threading.Lock()
@@ -136,6 +103,25 @@ class Bots:
     def __init__(self, db):
         self.db, self.apps, self.lock = db, {}, threading.Lock()
 
+    def lab(self, user) -> lab_mod.Lab:
+        """Laboratorio del usuario (se crea con su panel)."""
+        a = self.app(user)
+        if a.lab is None:
+            a.lab = lab_mod.Lab(user_dir(user["id"]) / "lab")
+        return a.lab
+
+    def lab_loop(self, stop_event, every: int = 300):
+        """Un solo hilo ejecuta los laboratorios de todos los usuarios, uno tras otro."""
+        while not stop_event.wait(every):
+            for uid, a in list(self.apps.items()):
+                try:
+                    if a.lab is None:
+                        a.lab = lab_mod.Lab(user_dir(uid) / "lab")
+                    a.lab.sync(a.engine.cfg, a.data_ex)
+                    a.lab.step()
+                except (Exception, SystemExit) as e:
+                    log.warning(f"Laboratorio del usuario {uid}: {e}")
+
     def app(self, user: dict) -> panel.PanelApp:
         with self.lock:
             a = self.apps.get(user["id"])
@@ -167,6 +153,8 @@ class Bots:
                 old.engine.thread.join(timeout=45)
             bot.save_state(old.engine.state, old.engine.files.state)
         a = self.app(self.db.user(user["id"]))
+        if old and old.lab is not None:
+            a.lab = old.lab                    # el laboratorio se conserva (se reinicia solo si cambia la estrategia)
         if was_running and a.engine.broker is not None:
             a.engine.start()
         return a, was_running
@@ -228,6 +216,8 @@ def save_user_settings(uid, body: dict):
     data = {"exchange": ex_id, "symbols": symbols, "timeframe": timeframe, "risk_per_trade": risk,
             "paper_balance": balance, "fee": float(taker) if taker else 0.001,
             "market_filter": "BTC" if body.get("market_filter") else ""}
+    kept = {k: v for k, v in read_user_settings(uid).items() if k in ("strategy_mode", "fast", "slow", "adx_min")}
+    data = {**kept, **data}                    # lo aplicado desde el laboratorio se conserva
     path = user_dir(uid) / "settings.json"
     tmp = path.with_suffix(".tmp")
     tmp.write_text(json.dumps(data, indent=2), encoding="utf-8")
@@ -259,6 +249,10 @@ class Handler(panel.Handler):
         return (f"{COOKIE}={token}; Path=/; HttpOnly; SameSite=Strict; Max-Age={max_age}"
                 + ("; Secure" if self._https() else ""))
 
+    def _public_app(self, token: str):
+        owner = self.db.by_public_token(token)
+        return self.server.bots.app(owner) if owner else None
+
     def _page(self, name):
         return self._send(200, (WEB / name).read_bytes(), "text/html; charset=utf-8")
 
@@ -276,6 +270,8 @@ class Handler(panel.Handler):
         q = parse_qs(u.query)
         if u.path in ("/login", "/registro", "/restablecer"):
             return self._page("plataforma_acceso.html")
+        if u.path.startswith("/p/"):
+            return self._public(u.path)
         if u.path == "/favicon.ico" and (ROOT / "assets" / "bot.ico").exists():
             return self._send(200, (ROOT / "assets" / "bot.ico").read_bytes(), "image/x-icon")
         user = self.db.session_user(self._token())
@@ -323,6 +319,10 @@ class Handler(panel.Handler):
                 tok = user["telegram_token"]
                 self._json({"configured": bool(tok and user["telegram_chat"]),
                             "token_hint": ("•••• " + tok[-4:]) if tok else "", "chat_id": user["telegram_chat"]})
+            elif u.path == "/api/lab":
+                self._json(app.lab.ranking() if app.lab else {"ready": False, "variants": []})
+            elif u.path == "/api/public":
+                self._json(self._public_status(user.get("public_token") or ""))
             elif u.path == "/api/security":
                 self._json({"remote": True, "totp": bool(user["totp_secret"])})
             elif u.path == "/api/health":
@@ -410,6 +410,27 @@ class Handler(panel.Handler):
             return self._json({"ok": True, "restarted": restarted})
         app = bots.app(user)
         e = app.engine
+        if u.path in ("/api/public/enable", "/api/public/disable"):
+            token = public_page.new_token() if u.path.endswith("enable") else ""
+            db.update(user["id"], public_token=token)
+            return self._json({"ok": True, **self._public_status(token)})
+        if u.path == "/api/lab/apply":
+            if app.lab is None:
+                raise ValueError("El laboratorio aún no está listo.")
+            changes = app.lab.changes(str(body.get("id", "")))
+            path = user_dir(user["id"]) / "settings.json"
+            data = {**read_user_settings(user["id"]), **changes}
+            for k in ("exchange", "symbols", "timeframe"):          # si aún no había guardado nada
+                data.setdefault(k, list(getattr(e.cfg, k)) if k == "symbols" else getattr(e.cfg, k))
+            tmp = path.with_suffix(".tmp")
+            tmp.write_text(json.dumps(data, indent=2), encoding="utf-8")
+            tmp.replace(path)
+            _, restarted = bots.rebuild(user)
+            return self._json({"ok": True, "restarted": restarted})
+        if u.path == "/api/lab/reset":
+            if app.lab:
+                app.lab.reset()
+            return self._json({"ok": True})
         if u.path == "/api/start":
             e.start()
         elif u.path == "/api/stop":
@@ -564,6 +585,7 @@ def main():
     server = make_server(a.port)
     server.bots.resume_all()
     threading.Thread(target=restart_on_update, args=(server,), daemon=True).start()
+    threading.Thread(target=server.bots.lab_loop, args=(threading.Event(),), daemon=True).start()
     log.info(f"Plataforma disponible en http://127.0.0.1:{a.port}/ ({server.db.count()} usuarios)")
     try:
         server.serve_forever()

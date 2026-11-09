@@ -22,7 +22,8 @@ SETTINGS_FILE = ROOT / "settings.json"
 
 # Campos que el asistente del panel puede guardar en settings.json
 SETUP_FIELDS = ("exchange", "symbols", "timeframe", "risk_per_trade", "max_open_positions",
-                "position_pct", "fee", "paper_balance", "market_filter")
+                "position_pct", "fee", "paper_balance", "market_filter",
+                "strategy_mode", "fast", "slow", "adx_min")
 # Credenciales: nombre en ccxt -> campo de Config
 CRED_FIELDS = {"apiKey": "api_key", "secret": "api_secret", "password": "api_password", "uid": "api_uid"}
 
@@ -38,6 +39,12 @@ class Config:
     fast: int = 20                   # media rápida (nº de velas)
     slow: int = 50                   # media lenta (nº de velas)
     ma_type: str = "ema"             # "sma" (simple) o "ema" (exponencial, reacciona antes)
+
+    strategy_mode: str = "trend"     # "trend" (solo tendencia) o "adaptive" (se adapta al mercado:
+                                     #   tendencia cuando la hay, rebotes en rango cuando está lateral)
+    rsi_buy: float = 35              # [adaptive] en mercado lateral compra si RSI < este valor y el
+    bb_period: int = 20              #   precio cae bajo la banda inferior de Bollinger (20 velas, 2σ);
+    bb_std: float = 2.0              #   vende al volver a la media de la banda
 
     # --- Filtros de entrada ---
     trend_filter: int = 200          # solo compra si el precio está sobre esta media larga

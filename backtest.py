@@ -17,8 +17,8 @@ from pathlib import Path
 import pandas as pd
 
 from config import CONFIG, Config
-from strategy import (add_signals, describe, exit_levels, initial_stop, market_ok, market_reference,
-                      position_spend)
+from strategy import (add_signals, describe, entry_kind, exit_levels, initial_stop, market_ok,
+                      market_reference, position_spend, should_exit)
 
 DATA_DIR = Path("data")
 
@@ -59,7 +59,7 @@ def run_backtest(df: pd.DataFrame, cfg: Config, initial: float = 1000.0,
 
     cash, qty, entry, peak, entry_atr, entry_time = initial, 0.0, 0.0, 0.0, 0.0, None
     trades, equity = [], []
-    in_market = 0
+    in_market, pos_kind = 0, "trend"
 
     for row in df.itertuples():
         t = row.Index
@@ -72,8 +72,8 @@ def run_backtest(df: pd.DataFrame, cfg: Config, initial: float = 1000.0,
                 exit_price, reason = min(stop, row.open), kind   # si abre por debajo, sale a la apertura
             elif tp and row.high >= tp:
                 exit_price, reason = max(tp, row.open), "take profit"
-            elif row.signal == -1:
-                exit_price, reason = row.close, "cruce bajista"
+            elif should_exit(pos_kind, row):
+                exit_price, reason = row.close, should_exit(pos_kind, row)
 
             if exit_price:
                 cash += qty * exit_price * (1 - cfg.fee)
@@ -87,7 +87,8 @@ def run_backtest(df: pd.DataFrame, cfg: Config, initial: float = 1000.0,
                 qty = 0.0
             else:
                 peak = max(peak, row.high)
-        elif row.signal == 1:
+        elif entry_kind(row.signal):
+            pos_kind = entry_kind(row.signal)
             entry_atr = row.atr
             spend = position_spend(cash, cash, row.close, initial_stop(row.close, entry_atr, cfg), cfg)
             if spend > 0:
@@ -175,6 +176,8 @@ def main():
     p.add_argument("--trailing", type=float, default=CONFIG.trailing_stop, help="trailing en %% (0 = no)")
     p.add_argument("--tp", type=float, default=CONFIG.take_profit, help="take profit (0 = no)")
     p.add_argument("--risk", type=float, default=CONFIG.risk_per_trade, help="riesgo por operación (0 = no)")
+    p.add_argument("--mode", choices=["trend", "adaptive"], default=CONFIG.strategy_mode,
+                   help="trend = solo tendencia; adaptive = se adapta al tipo de mercado")
     p.add_argument("--market", default=CONFIG.market_filter,
                    help="filtro de mercado: moneda de referencia (BTC) o '' para desactivarlo")
     p.add_argument("--export", help="guarda las operaciones en este CSV")
@@ -187,7 +190,7 @@ def main():
                       ma_type=a.ma, trend_filter=a.trend, adx_min=a.adx, stop_mode=a.stop,
                       atr_stop_mult=a.atr_stop, atr_trail_mult=a.atr_trail, stop_loss=a.sl,
                       trailing_stop=a.trailing, take_profit=a.tp, risk_per_trade=a.risk,
-                      market_filter=a.market)
+                      market_filter=a.market, strategy_mode=a.mode)
         df = load_data(sym, cfg.timeframe, a.days, a.csv)
         ref = market_reference(sym, cfg)
         mdf = load_data(ref, cfg.timeframe, a.days) if ref and not a.csv else None

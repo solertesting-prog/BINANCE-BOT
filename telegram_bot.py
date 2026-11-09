@@ -2,6 +2,7 @@
 
     /estado      capital, resultado, posiciones y si está en marcha
     /posiciones  detalle de las posiciones abiertas
+    /porque      qué piensa el bot de cada moneda y por qué no compra
     /parar       detiene el bot (las posiciones abiertas mantienen su stop en el exchange)
     /arrancar    vuelve a ponerlo en marcha
     /ayuda       esta lista
@@ -19,6 +20,7 @@ import telegram_setup
 log = logging.getLogger("bot")
 API = "https://api.telegram.org/bot{token}/{method}"
 COMMANDS = [("estado", "Capital, resultado y posiciones"), ("posiciones", "Detalle de las posiciones"),
+            ("porque", "Qué piensa el bot de cada moneda"),
             ("parar", "Detener el bot"), ("arrancar", "Poner el bot en marcha"), ("ayuda", "Lista de comandos")]
 
 
@@ -59,6 +61,11 @@ def handle(app, text: str) -> str:
             f"Resultado {_pct(p['pnl_pct'])} ({_n(p['pnl_usdt'])})\n"
             f"{p['stop_kind'].capitalize()} {_n(p['stop'], 4 if p['price'] < 10 else 2)}"
             f"{' · puesto en el exchange' if p['exchange_stop'] else ''}" for p in pos)
+    if cmd in ("/porque", "/porqué"):
+        s = e.snapshot()
+        icons = {"alcista": "📈", "lateral": "↔️", "bajista": "📉"}
+        out = [f"{icons.get(s['regimes'].get(x), '•')} {x}\n{s['explain'][x]}" for x in s["symbols"] if x in s["explain"]]
+        return "\n\n".join(out) or "Todavía no he revisado el mercado. Pregúntame en un minuto."
     if cmd == "/parar":
         if not e.is_running():
             return "El bot ya estaba parado."

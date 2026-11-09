@@ -1,4 +1,5 @@
 """Conexión con los exchanges (vía ccxt), catálogo de exchanges y descarga de velas."""
+import threading
 import time
 
 import ccxt
@@ -120,3 +121,42 @@ def timeframe_seconds(timeframe: str) -> int:
     """'15m' -> 900, '4h' -> 14400, '1d' -> 86400 (sin necesitar conexión)."""
     units = {"m": 60, "h": 3600, "d": 86400, "w": 604800}
     return int(timeframe[:-1]) * units[timeframe[-1]]
+
+
+class SharedMarket:
+    """Conexión PÚBLICA a un exchange compartida por todos los usuarios, con caché y bloqueo:
+    20 usuarios con BTC no hacen 20 peticiones iguales."""
+    TICKER_TTL, OHLCV_TTL = 10, 30
+
+    def __init__(self, ex):
+        self._ex, self._lock, self._cache = ex, threading.Lock(), {}
+        self._markets_loaded = False
+
+    def __getattr__(self, name):
+        return getattr(self._ex, name)
+
+    def _cached(self, key, ttl, fn):
+        with self._lock:
+            hit = self._cache.get(key)
+            if hit and time.time() - hit[0] < ttl:
+                return hit[1]
+            value = fn()
+            self._cache[key] = (time.time(), value)
+            if len(self._cache) > 2000:
+                self._cache.clear()
+            return value
+
+    def load_markets(self, *a, **k):
+        with self._lock:
+            if not self._markets_loaded:
+                self._ex.load_markets()
+                self._markets_loaded = True
+            return self._ex.markets
+
+    def fetch_ticker(self, symbol, *a, **k):
+        return self._cached(("t", symbol), self.TICKER_TTL, lambda: self._ex.fetch_ticker(symbol))
+
+    def fetch_ohlcv(self, symbol, timeframe="1m", since=None, limit=None, *a, **k):
+        return self._cached(("o", symbol, timeframe, since, limit), self.OHLCV_TTL,
+                            lambda: self._ex.fetch_ohlcv(symbol, timeframe, limit=limit) if since is None
+                            else self._ex.fetch_ohlcv(symbol, timeframe, since=since, limit=limit))

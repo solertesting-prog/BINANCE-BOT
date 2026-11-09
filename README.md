@@ -14,6 +14,12 @@ Valorize Bot es un bot de trading automático para el mercado spot (solo compras
 - **Varias monedas** a la vez (botón ⭐ Recomendadas con 6 de las más líquidas), con límite de posiciones abiertas.
 - Interruptor de seguridad: vende todo y se detiene si el capital cae un 20 %.
 
+**Laboratorio, explicaciones y página pública**
+- **🧪 Laboratorio en la sombra:** variantes de tu estrategia (más riesgo, medias 10/30, sin filtro de fuerza, filtro de BTC, adaptativa) compiten en paralelo con dinero ficticio y los mismos precios en vivo. El panel muestra la clasificación y un botón para pasar a usar la que elijas.
+- **💬 Qué está pensando el bot:** para cada moneda, el tipo de mercado (alcista, lateral, bajista) y una frase en lenguaje llano: por qué no compra, qué espera o cuándo vendería. También con `/porque` en Telegram.
+- **Estrategia adaptativa** (opcional, `strategy_mode = "adaptive"`): sigue tendencias cuando las hay, compra caídas exageradas en mercado lateral (RSI + banda de Bollinger) y se queda fuera en mercado bajista. Pruébala primero en el laboratorio o con `python backtest.py --mode adaptive`.
+- **🔗 Página pública de resultados:** enlace de solo lectura, opcional, con la evolución en porcentaje, las operaciones y la comparación con comprar y mantener BTC. Nunca muestra importes e indica si los resultados son simulados o reales.
+
 **Multi-exchange y asistente de configuración**
 - Asistente en el panel: exchange → modo (simulado / testnet / real) → claves con **prueba de conexión** → monedas, velas y riesgo.
 - Detecta lo que permite cada exchange (testnet, stops en el exchange, tipo de claves) y marca los no compatibles con el motivo (p. ej. bitFlyer no ofrece velas).
@@ -85,13 +91,15 @@ Exchange, modo, claves y monedas se configuran desde el panel (**⚙ Configuraci
 | `setup_api.py` | Asistente: catálogo de exchanges, mercados, prueba de conexión y guardado |
 | `telegram_setup.py`, `telegram_bot.py` | Conexión de los avisos por Telegram desde el panel y comandos del chat |
 | `plataforma.py`, `plataforma_db.py`, `web/plataforma_*.html` | Plataforma multiusuario: cuentas, invitaciones, un bot por usuario y administración |
+| `lab.py` | Laboratorio en la sombra: variantes en paralelo con dinero ficticio |
+| `public_page.py`, `web/publico.html` | Página pública de resultados (solo lectura) |
 | `maintenance.py` | Copias de seguridad diarias y latido (aviso de caída) |
 | `updater.py` | Actualización desde el panel en el servidor |
 | `licensing.py` | Licencias con Lemon Squeezy (datos de tu tienda al principio del archivo) |
 | `compilar.bat`, `cliente/` | Compilación a `.exe` e instalador para clientes |
 | `backtest.py`, `report.py`, `optimize.py` | Backtest, informe HTML y optimización walk-forward |
 | `exchange.py` | Conexión con el exchange (ccxt), capacidades de cada uno y descarga de velas |
-| `tests/` | 48 tests sin conexión: estrategia, backtest, motor, asistente, licencias y acceso con contraseña (con exchanges y servidor de licencias simulados) y panel |
+| `tests/` | 52 tests sin conexión: estrategia, backtest, motor, asistente, licencias y acceso con contraseña (con exchanges y servidor de licencias simulados) y panel |
 | `auth.py`, `web/login.html` | Acceso con contraseña al panel (para usarlo por internet) |
 | `deploy/instalar-servidor.sh`, `deploy/generar_cloud_init.py`, `preparar-servidor.bat` | Instalación automática en un servidor (ver SERVIDOR.md) |
 | `deploy/valorize-bot.service` | Servicio systemd básico (alternativa manual) |

@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>Valorize Bot · Resultados</title>
+<link rel="icon" href="/favicon.ico">
+<style>
+:root{--bg:#0b0e14;--panel:#121722;--line:#232b3b;--line2:#2c3547;--text:#e7eaf0;--text2:#a3abbb;--muted:#6c7589;--accent:#f5b83d;--up:#2ebd85;--down:#f6465d;--btc:#5b8def}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--text);font:14px/1.5 "Segoe UI",system-ui,-apple-system,Roboto,sans-serif}
+main{max-width:980px;margin:0 auto;padding:22px 16px 40px}
+.brand{display:flex;align-items:center;gap:10px;font-weight:650;font-size:18px;flex-wrap:wrap}
+.logo{width:34px;height:34px;border-radius:9px;background:linear-gradient(135deg,#f5b83d,#e08a1e);display:grid;place-items:center;flex-shrink:0}
+.badge{font-size:11.5px;font-weight:700;letter-spacing:.05em;padding:3px 10px;border-radius:99px;text-transform:uppercase}
+.b-paper{background:#1c2540;color:#9db4ff}.b-testnet{background:#2a2414;color:#f3d48a}.b-live{background:#11251f;color:#9fe2c4}
+.sub{color:var(--text2);margin:6px 0 18px;font-size:13.5px}
+.note{border:1px solid #253457;background:#141c2e;color:#a9c1f5;border-radius:10px;padding:10px 14px;font-size:13px;margin-bottom:16px}
+.kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px}
+.kpi{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px 16px}
+.kpi .l{font-size:11.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;font-weight:600}
+.kpi .v{font-size:24px;font-weight:650;margin-top:4px;font-variant-numeric:tabular-nums}
+.kpi .s{font-size:12px;color:var(--muted)}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:14px;margin-bottom:16px;overflow:hidden}
+.hd{display:flex;align-items:center;gap:14px;padding:13px 18px;border-bottom:1px solid var(--line);flex-wrap:wrap}
+h2{font-size:15px;margin:0}
+.lg{display:flex;align-items:center;gap:6px;font-size:12.5px;color:var(--text2)}.lg i{width:14px;height:3px;border-radius:2px;display:inline-block}
+.cw{height:300px;padding:10px 8px 4px}canvas{width:100%;height:100%;display:block}
+.tw{overflow-x:auto;max-height:420px}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th,td{text-align:left;padding:9px 14px;border-bottom:1px solid var(--line);white-space:nowrap}
+th{font-size:11.5px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.04em;position:sticky;top:0;background:var(--panel)}
+.r{text-align:right}.up{color:var(--up)}.down{color:var(--down)}.muted{color:var(--muted)}
+footer{color:var(--muted);font-size:12px;text-align:center;margin-top:20px;line-height:1.6}
+@media (max-width:700px){.kpis{grid-template-columns:1fr 1fr}.kpi .v{font-size:20px}.cw{height:240px}}
+</style>
+</head>
+<body>
+<main>
+  <div class="brand"><div class="logo"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#1a1305" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17l6-6 4 4 8-8"/><path d="M15 7h6v6"/></svg></div>
+    Valorize Bot · Resultados <span class="badge" id="mode"></span></div>
+  <p class="sub" id="sub">Cargando…</p>
+  <div class="note" id="note" style="display:none"></div>
+  <section class="kpis">
+    <div class="kpi"><div class="l">Resultado del bot</div><div class="v" id="kRet">—</div><div class="s" id="kSince"></div></div>
+    <div class="kpi"><div class="l">Comprar y mantener BTC</div><div class="v" id="kBtc">—</div><div class="s">en el mismo periodo</div></div>
+    <div class="kpi"><div class="l">Peor caída</div><div class="v" id="kDd">—</div><div class="s">desde un máximo</div></div>
+    <div class="kpi"><div class="l">Operaciones cerradas</div><div class="v" id="kOps">—</div><div class="s" id="kWin"></div></div>
+  </section>
+  <div class="card"><div class="hd"><h2>Evolución (base 100)</h2><span class="lg"><i style="background:var(--accent)"></i>Bot</span><span class="lg" id="lgBtc"><i style="background:var(--btc)"></i>Comprar y mantener BTC</span></div>
+    <div class="cw"><canvas id="c"></canvas></div></div>
+  <div class="card"><div class="hd"><h2>Operaciones cerradas</h2><span class="muted" id="tn" style="font-size:12.5px"></span></div>
+    <div class="tw"><table><thead><tr><th>Entrada (UTC)</th><th>Salida (UTC)</th><th>Par</th><th>Motivo de la venta</th><th class="r">Resultado</th></tr></thead><tbody id="t"></tbody></table></div></div>
+  <footer>Datos generados automáticamente por el bot; se actualizan cada pocos minutos. Solo se muestran porcentajes, nunca importes.<br>
+    Esto no es asesoramiento financiero. Los resultados pasados no garantizan resultados futuros. Las criptomonedas pueden perder todo su valor.</footer>
+</main>
+<script>
+const $ = id => document.getElementById(id);
+const esc = s => String(s??'').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const pct = (v, d=2) => v==null||isNaN(v) ? '—' : (v>0?'+':'')+(v*100).toLocaleString('es-ES',{minimumFractionDigits:d,maximumFractionDigits:d})+' %';
+const cls = v => v>0?'up':v<0?'down':'';
+const MODES = {paper:['Simulado','b-paper','Resultados en <b>modo simulado</b>: precios reales, pero con dinero ficticio. No se ha arriesgado dinero de verdad.'],
+               testnet:['Testnet','b-testnet','Resultados en el <b>entorno de pruebas</b> (testnet) del exchange: dinero ficticio y precios que no son los del mercado real.'],
+               live:['Cuenta real','b-live','']};
+let D = null;
+function draw(){
+  const cv = $('c'), r = cv.getBoundingClientRect(), dpr = window.devicePixelRatio||1;
+  cv.width = r.width*dpr; cv.height = r.height*dpr; const g = cv.getContext('2d'); g.scale(dpr,dpr);
+  const W = r.width, H = r.height, L = 46, R = 12, T = 10, B = 24;
+  const a = D.curve||[], b = D.benchmark||[];
+  if(a.length < 2){ g.fillStyle='#6c7589'; g.font='13px system-ui'; g.textAlign='center'; g.fillText('Aún no hay suficientes datos: vuelve en unas horas.', W/2, H/2); return; }
+  const all = a.concat(b), t0 = a[0][0], t1 = a[a.length-1][0];
+  let lo = Math.min(...all.map(p=>p[1]), 100), hi = Math.max(...all.map(p=>p[1]), 100); const pad = (hi-lo)*0.08||1; lo-=pad; hi+=pad;
+  const x = t => L + (t-t0)/(t1-t0||1)*(W-L-R), y = v => T + (hi-v)/(hi-lo)*(H-T-B);
+  g.font='11px system-ui'; g.textBaseline='middle';
+  for(let i=0;i<=4;i++){ const v = lo+(hi-lo)*i/4; g.strokeStyle='#1b2230'; g.beginPath(); g.moveTo(L,y(v)); g.lineTo(W-R,y(v)); g.stroke();
+    g.fillStyle='#6c7589'; g.textAlign='right'; g.fillText(v.toFixed(1), L-6, y(v)); }
+  g.strokeStyle='#3a4459'; g.setLineDash([4,4]); g.beginPath(); g.moveTo(L,y(100)); g.lineTo(W-R,y(100)); g.stroke(); g.setLineDash([]);
+  g.textBaseline='alphabetic'; g.fillStyle='#6c7589';
+  for(let i=0;i<=3;i++){ const t = t0+(t1-t0)*i/3; g.textAlign = i===0?'left':i===3?'right':'center';
+    g.fillText(new Date(t*1000).toLocaleDateString('es-ES',{day:'numeric',month:'short'}), x(t), H-6); }
+  const line = (pts, color, w) => { if(pts.length<2) return; g.strokeStyle=color; g.lineWidth=w; g.lineJoin='round'; g.beginPath();
+    pts.forEach((p,i)=>{ const X = Math.min(Math.max(x(p[0]),L),W-R); i?g.lineTo(X,y(p[1])):g.moveTo(X,y(p[1])); }); g.stroke(); };
+  line(b, '#5b8def', 1.5); line(a, '#f5b83d', 2.2);
+}
+async function load(){
+  let d; try{ const r = await fetch(location.pathname.replace(/\/$/,'')+'/data',{cache:'no-store'}); if(!r.ok) throw 0; d = await r.json(); }
+  catch(e){ $('sub').textContent = 'Esta página no está disponible ahora mismo.'; return; }
+  D = d; const m = MODES[d.mode]||MODES.paper;
+  $('mode').textContent = m[0]; $('mode').className = 'badge '+m[1];
+  if(m[2]){ $('note').innerHTML = m[2]; $('note').style.display=''; }
+  const since = d.since ? new Date(d.since*1000).toLocaleDateString('es-ES',{day:'numeric',month:'long',year:'numeric'}) : null;
+  $('sub').textContent = `${d.exchange} · ${d.symbols.join(', ')} · velas de ${d.timeframe} · ${d.strategy.split(' | ').slice(0,4).join(' · ')}`;
+  $('kRet').textContent = pct(d.return); $('kRet').className = 'v '+cls(d.return);
+  $('kSince').textContent = since ? 'desde el '+since : 'aún sin datos';
+  $('kBtc').textContent = pct(d.benchmark_return); $('kBtc').className = 'v '+cls(d.benchmark_return);
+  if(!d.benchmark) $('lgBtc').style.display='none';
+  $('kDd').textContent = d.max_drawdown ? pct(d.max_drawdown,1) : '—';
+  $('kOps').textContent = d.trades_count;
+  const op = d.open_positions ? d.open_positions+(d.open_positions>1?' abiertas':' abierta')+' ahora' : '';
+  $('kWin').textContent = d.win_rate==null ? op : Math.round(d.win_rate*100)+' % con ganancia'+(op?' · '+op:'');
+  if(!d.benchmark) document.querySelector('#kBtc + .s').textContent = 'no disponible todavía';
+  $('tn').textContent = d.trades_count > d.trades.length ? `últimas ${d.trades.length} de ${d.trades_count}` : '';
+  $('t').innerHTML = d.trades.length ? d.trades.map(t=>`<tr><td>${esc((t.entrada||'').slice(0,16))}</td><td>${esc((t.salida||'').slice(0,16))}</td><td>${esc(t.par)}</td>
+    <td>${esc(t.motivo)}</td><td class="r ${cls(t.pnl_pct)}">${pct(t.pnl_pct)}</td></tr>`).join('')
+    : '<tr><td colspan="5" class="muted" style="text-align:center;padding:22px">Todavía no ha cerrado ninguna operación. Con esta estrategia pueden pasar días entre una y otra.</td></tr>';
+  draw();
+}
+load(); setInterval(load, 300000); addEventListener('resize', ()=>D&&draw());
+</script>
+</body>
+</html>

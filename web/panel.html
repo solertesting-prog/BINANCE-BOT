@@ -167,6 +167,9 @@ footer{color:var(--muted);font-size:12px;text-align:center;margin-top:24px}
 .lic.ok{color:#6fd1a5;border-color:#1f4d3d;background:#11251f}.lic.warn{color:#f3d48a;border-color:#5a4a20;background:#2a2414}
 .lic.bad{color:#ff9aa7;border-color:#4a2530;background:#211419}
 .ldialog{max-width:520px}
+.think{display:flex;flex-direction:column;gap:12px;max-height:340px;overflow:auto}.th p{margin:4px 0 0;font-size:12.5px;color:var(--text2);line-height:1.5}
+.thh{display:flex;align-items:center;gap:8px;font-size:13px}.chip.up{color:#9fe2c4;border-color:#1f4d3d}.chip.down{color:#ffb3bd;border-color:#4a2530}
+tr.cur td{background:rgba(245,184,61,.05)}#lab td{vertical-align:top;white-space:normal}#lab td.r{white-space:nowrap}
 .chk{display:flex;gap:10px;align-items:flex-start;font-size:13px;color:var(--text2);cursor:pointer;margin-top:4px}.chk input{margin-top:3px;accent-color:var(--accent)}
 .tgsteps{margin:0 0 12px;padding-left:20px;color:var(--text2);line-height:1.6}.tgsteps li{margin-bottom:6px}
 .tgsteps a{color:var(--accent)}.tgsteps code,.wbody code{background:#0d1119;border:1px solid var(--line2);border-radius:5px;padding:1px 5px;font-size:13px}
@@ -230,13 +233,21 @@ header .btn,header .brand,header .badge,header .chip,header .status{white-space:
     </div>
     <div class="stack">
       <div class="card"><div class="hd"><h2>Posiciones abiertas</h2></div><div class="bd" id="positions"><div class="empty">Cargando…</div></div></div>
+      <div class="card"><div class="hd"><h2>💬 Qué está pensando el bot</h2></div><div class="bd think" id="think"><div class="empty">Lo sabrás en cuanto revise el mercado.</div></div></div>
       <div class="card"><div class="hd"><h2>Estrategia</h2><div class="spacer"></div><span class="muted" id="tf"></span></div>
         <div class="bd"><div class="chips" id="chips"></div><div class="set" id="settings"></div></div></div>
     </div>
   </div>
 
-  <div class="card" style="margin-top:16px"><div class="hd"><h2>Evolución del capital</h2><div class="spacer"></div><span class="muted" style="font-size:12px">un punto por hora</span></div>
+  <div class="card" style="margin-top:16px"><div class="hd"><h2>Evolución del capital</h2><div class="spacer"></div><span class="muted hide-sm" style="font-size:12px">un punto por hora</span>
+      <button class="btn sm" onclick="openPub()" title="Página pública de resultados (solo lectura)" style="margin-left:8px">🔗 Compartir</button></div>
     <div class="eq"><canvas id="equity"></canvas></div></div>
+
+  <div class="card" style="margin-top:16px"><div class="hd"><h2>🧪 Laboratorio</h2><span class="muted hide-sm" style="font-size:12px" id="labSince"></span><div class="spacer"></div>
+      <button class="btn sm" onclick="labReset()" title="Borrar la clasificación y empezar de cero">Reiniciar</button></div>
+    <div class="bd" style="padding-bottom:6px"><p class="muted" style="margin:0 0 10px;font-size:12.5px">Variantes de tu estrategia compitiendo en paralelo con <b>dinero ficticio</b> y los mismos precios en vivo. Sirve para decidir cambios con datos, no con intuiciones. Unos pocos días no significan nada: espera semanas y varias operaciones antes de sacar conclusiones.</p></div>
+    <div class="tablewrap" style="max-height:none"><table><thead><tr><th>#</th><th>Variante</th><th class="r">Resultado</th><th class="r">Peor caída</th><th class="r">Operaciones</th><th class="r">Acierto</th><th class="r">Abiertas</th><th></th></tr></thead>
+      <tbody id="lab"><tr><td colspan="8" class="empty">El laboratorio arranca unos segundos después de abrir el panel…</td></tr></tbody></table></div></div>
 
   <div class="lower">
     <div class="card"><div class="hd"><h2>Operaciones cerradas</h2><div class="spacer"></div><span class="muted" id="tradesN" style="font-size:12px"></span>
@@ -263,6 +274,12 @@ header .btn,header .brand,header .badge,header .chip,header .status{white-space:
     <button class="xbtn" onclick="closeTg()" title="Cerrar">✕</button></div>
   <div class="wbody" id="tgBody" style="min-height:0"></div>
   <div class="wbody" id="hcBody" style="min-height:0;border-top:1px solid var(--line)"></div>
+</div></div>
+
+<div class="modal" id="pubm"><div class="wdialog ldialog">
+  <div class="whead"><div><h3>🔗 Página pública de resultados</h3><p class="muted">Un enlace de solo lectura para enseñar cómo va el bot</p></div>
+    <button class="xbtn" onclick="closePub()" title="Cerrar">✕</button></div>
+  <div class="wbody" id="pubBody" style="min-height:0"></div>
 </div></div>
 
 <div class="modal" id="secm"><div class="wdialog ldialog">
@@ -387,7 +404,67 @@ function renderPositions(s){
     </div>`; }).join('');
 }
 
+const REG = {alcista:['📈 Alcista','up'], lateral:['↔ Lateral',''], bajista:['📉 Bajista','down']};
+function renderThink(s){
+  const ex = s.explain||{}, syms = s.symbols.filter(x=>ex[x]);
+  if(!syms.length) return;
+  $('think').innerHTML = syms.map(x=>{ const r = REG[(s.regimes||{})[x]];
+    return `<div class="th"><div class="thh"><b>${esc(x)}</b>${r?`<span class="chip ${r[1]}">${r[0]}</span>`:''}</div><p>${esc(ex[x])}</p></div>`; }).join('');
+}
+
+/* ---------- laboratorio ---------- */
+async function loadLab(){
+  let d; try{ d = await get('/api/lab'); }catch(e){ return; }
+  if(!d.variants || !d.variants.length) return;
+  $('labSince').textContent = d.since ? '· desde el '+d.since.slice(0,10).split('-').reverse().join('/') : '';
+  $('lab').innerHTML = d.variants.map((v,i)=>`<tr class="${v.id==='actual'?'cur':''}">
+    <td>${i+1}</td><td><b>${esc(v.name)}</b>${v.id==='actual'?' <span class="chip">en uso</span>':''}${v.halted?' <span class="chip down">detenida por pérdidas</span>':''}<div class="muted" style="font-size:12px">${esc(v.desc)}</div></td>
+    <td class="r num ${cls(v.return)}">${pct(v.return)}</td><td class="r num">${v.max_drawdown?pct(v.max_drawdown,1):'—'}</td>
+    <td class="r num">${v.trades}</td><td class="r num">${v.win_rate==null?'—':nf(v.win_rate*100,0)+' %'}</td><td class="r num">${v.positions}</td>
+    <td class="r">${v.id==='actual'?'':`<button class="btn sm" onclick="labApply('${v.id}')">Usar esta</button>`}</td></tr>`).join('')
+    + (d.error?`<tr><td colspan="8" class="muted" style="font-size:12px">⚠️ ${esc(d.error)}</td></tr>`:'');
+  LABV = Object.fromEntries(d.variants.map(v=>[v.id,v]));
+}
+let LABV = {};
+function labApply(id){
+  const v = LABV[id]; if(!v) return;
+  $('mTitle').textContent = 'Usar «'+v.name+'»';
+  $('mText').innerHTML = `Tu bot pasará a operar con esta variante: <b>${esc(v.desc)}</b>.<br><br>En el laboratorio lleva <b>${pct(v.return)}</b> con <b>${v.trades}</b> operaciones cerradas${v.trades<20?' — <b>todavía son muy pocas para fiarse</b>':''}. El resultado pasado no garantiza el futuro.${S.status&&S.status.mode==='live'&&!S.status.testnet?'<br><br>⚠️ <b>Estás operando con dinero real.</b>':''}<br><br>La clasificación del laboratorio empezará de cero.`;
+  $('mOk').textContent = 'Usar esta variante';
+  $('mOk').onclick = async ()=>{ closeModal(); try{ await postJSON('/api/lab/apply',{id}); toast('Estrategia cambiada'); await refresh(); loadLab(); }catch(e){ toast(e.message); } };
+  $('modal').classList.add('show');
+}
+async function labReset(){ if(!confirm('¿Borrar la clasificación del laboratorio y empezar de cero?')) return;
+  try{ await postJSON('/api/lab/reset',{}); $('lab').innerHTML='<tr><td colspan="8" class="empty">Reiniciado. Volverá a aparecer en unos minutos.</td></tr>'; }catch(e){ toast(e.message); } }
+
+/* ---------- página pública ---------- */
+let PUB = null;
+async function openPub(){ $('pubm').classList.add('show'); $('pubBody').innerHTML='<div class="empty"><span class="spin"></span>Cargando…</div>';
+  try{ PUB = await get('/api/public'); }catch(e){ PUB = {enabled:false}; } renderPub(); }
+function closePub(){ $('pubm').classList.remove('show'); }
+function renderPub(){
+  const url = PUB.enabled ? location.origin + PUB.path : '';
+  $('pubBody').innerHTML = PUB.enabled ?
+    `<p style="margin:0 0 10px;color:var(--text2)">✓ <b>Activada.</b> Cualquiera que tenga este enlace puede ver la página, sin contraseña:</p>
+     <div class="num" style="padding:10px 12px;background:#0d1119;border:1px solid var(--line2);border-radius:8px;word-break:break-all;user-select:all">${esc(url)}</div>
+     <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:14px;flex-wrap:wrap">
+       <button class="btn" onclick="navigator.clipboard.writeText('${esc(url)}').then(()=>toast('Enlace copiado'))">Copiar enlace</button>
+       <a class="btn" href="${esc(PUB.path)}" target="_blank" rel="noopener" style="text-decoration:none">Verla ↗</a>
+       <button class="btn danger" onclick="pubSet('disable')">Desactivar</button></div>
+     <p class="muted" style="font-size:12px;margin-top:12px">Al desactivarla el enlace deja de funcionar. Si la vuelves a activar, el enlace será otro.</p>` :
+    `<p style="margin:0 0 12px;color:var(--text2)">Crea un enlace para enseñar los resultados del bot a quien quieras, sin darle acceso al panel.</p>
+     <ul class="tgsteps" style="padding-left:18px"><li><b>Muestra:</b> la evolución en porcentaje, las operaciones cerradas y la comparación con comprar y mantener BTC.</li>
+     <li><b>No muestra:</b> importes, saldos, claves ni tus datos.</li>
+     <li>Indica siempre si son resultados <b>simulados</b> o de una cuenta real.</li></ul>
+     <div style="display:flex;justify-content:flex-end"><button class="btn primary" onclick="pubSet('enable')">Crear enlace público</button></div>`;
+}
+async function pubSet(what){
+  if(what==='disable' && !confirm('¿Desactivar la página pública? El enlace dejará de funcionar.')) return;
+  try{ PUB = await postJSON('/api/public/'+what,{}); renderPub(); }catch(e){ toast(e.message); }
+}
+
 function renderStrategy(s){
+  renderThink(s);
   $('tf').textContent = 'velas de '+s.timeframe;
   $('chips').innerHTML = s.strategy.split(' | ').map(c=>`<span class="chip">${esc(c)}</span>`).join('');
   const st=s.settings;
@@ -870,12 +947,13 @@ async function wGo(dir){
 }
 
 window.addEventListener('resize', ()=>{ drawChart(); if(S.status) drawEquity(S.status.equity_history); });
-document.addEventListener('keydown', e=>{ if(e.key==='Escape'){ closeModal(); closeLic(); closeTg(); closeSec(); } });
+document.addEventListener('keydown', e=>{ if(e.key==='Escape'){ closeModal(); closeLic(); closeTg(); closeSec(); closePub(); } });
 (async()=>{ await refresh(); loadChart(); loadTables();
   try{ const st = await get('/api/setup'); if(!st.configured) openWiz(true); }catch(e){} })();
 setInterval(()=>{ refresh().then(()=>drawChart()); }, 5000);
 setInterval(loadTables, 10000);
 checkUpd(); setInterval(checkUpd, 6*3600*1000);
+setTimeout(loadLab, 3000); setInterval(loadLab, 60000);
 setInterval(()=>loadChart(), 30000);
 </script>
 </body>

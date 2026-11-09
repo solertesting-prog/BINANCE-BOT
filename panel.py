@@ -29,8 +29,10 @@ import auth
 import bot
 import config as C
 import exchange as xch
+import lab as lab_mod
 import licensing
 import maintenance
+import public_page
 import setup_api
 import telegram_bot
 import telegram_setup
@@ -75,12 +77,31 @@ class PanelApp:
         self.lock = threading.Lock()
         self.setup_lock = threading.Lock()
         self.server = None
+        self.lab = None
 
     def apply_setup(self, body: dict, engine_factory=None, data_ex_factory=None) -> dict:
         """Guarda la configuración del asistente y reinicia el motor con ella."""
         with self.setup_lock:
+            venue_changed = setup_api.validate_and_save(self.engine, body)
+            return self._reload(venue_changed, engine_factory, data_ex_factory)
+
+    def apply_variant(self, vid: str, engine_factory=None, data_ex_factory=None) -> dict:
+        """Pasa una variante del laboratorio a ser la estrategia del bot."""
+        if self.lab is None:
+            raise ValueError("El laboratorio aún no está listo.")
+        changes = self.lab.changes(vid)
+        with self.setup_lock:
+            settings = C.read_settings()
+            settings.update(changes)
+            tmp = C.SETTINGS_FILE.with_suffix(".tmp")
+            tmp.write_text(json.dumps(settings, indent=2, ensure_ascii=False), encoding="utf-8")
+            tmp.replace(C.SETTINGS_FILE)
+            log.info(f"Variante del laboratorio aplicada: {self.lab.info[vid]['name']} {changes}")
+            return self._reload(False, engine_factory, data_ex_factory)
+
+    def _reload(self, venue_changed=False, engine_factory=None, data_ex_factory=None) -> dict:
+        if True:
             old = self.engine
-            venue_changed = setup_api.validate_and_save(old, body)
             was_running = old.is_running()
             if was_running:
                 old.stop(notify_user=False)
@@ -236,6 +257,8 @@ class Handler(BaseHTTPRequestHandler):
         q = parse_qs(u.query)
         if u.path == "/login":
             return self._send(200, (WEB_DIR / "login.html").read_bytes(), "text/html; charset=utf-8")
+        if u.path.startswith("/p/"):
+            return self._public(u.path)
         if not self._authed() and u.path != "/favicon.ico":
             if u.path.startswith("/api/"):
                 return self._json({"ok": False, "error": "Inicia sesión", "code": "auth"}, 401)
@@ -270,6 +293,10 @@ class Handler(BaseHTTPRequestHandler):
                     self._json(updater.check())
                 except updater.UpdateError as ue:
                     self._json({"available": True, "pending": 0, "error": str(ue)})
+            elif u.path == "/api/lab":
+                self._json(app.lab.ranking() if app.lab else {"ready": False, "variants": []})
+            elif u.path == "/api/public":
+                self._json(self._public_status(public_page.stored_token()))
             elif u.path == "/api/security":
                 self._json({"remote": auth.enabled(), "totp": auth.totp_enabled()})
             elif u.path == "/api/health":
@@ -286,6 +313,28 @@ class Handler(BaseHTTPRequestHandler):
         except Exception as e:
             log.exception(f"Error del panel en {u.path}")
             self._json({"ok": False, "error": str(e)}, 500)
+
+    # --- página pública de resultados (sin iniciar sesión, solo con el enlace) ---
+    def _public_app(self, token: str):
+        return self.server.app if public_page.matches(token, public_page.stored_token()) else None
+
+    def _public(self, path: str):
+        parts = path.strip("/").split("/")
+        app = self._public_app(parts[1]) if len(parts) in (2, 3) else None
+        if app is None:
+            return self._send(404, "Esta página no existe o ya no está disponible.".encode(), "text/plain; charset=utf-8")
+        if len(parts) == 2:
+            return self._send(200, (WEB_DIR / "publico.html").read_bytes(), "text/html; charset=utf-8")
+        if parts[2] == "data":
+            try:
+                return self._json(public_page.data(app.engine, app.data_ex))
+            except Exception as e:
+                log.warning(f"Página pública: {e}")
+                return self._json({"ok": False, "error": "no disponible"}, 500)
+        return self._send(404, b"", "text/plain")
+
+    def _public_status(self, token: str) -> dict:
+        return {"enabled": bool(token), "path": f"/p/{token}" if token else ""}
 
     def do_POST(self):
         # La cabecera X-Panel obliga al navegador a pedir permiso (CORS), que este servidor
@@ -353,6 +402,17 @@ class Handler(BaseHTTPRequestHandler):
                 except auth.AuthError as ae:
                     return self._json({"ok": False, "error": str(ae)}, 400)
                 return self._json({"ok": True, "totp": auth.totp_enabled()})
+            if u.path in ("/api/public/enable", "/api/public/disable"):
+                token = public_page.new_token() if u.path.endswith("enable") else ""
+                public_page.set_token(token)
+                log.info("Página pública de resultados " + ("activada." if token else "desactivada."))
+                return self._json({"ok": True, **self._public_status(token)})
+            if u.path == "/api/lab/apply":
+                return self._json(app.apply_variant(str(body.get("id", ""))))
+            if u.path == "/api/lab/reset":
+                if app.lab:
+                    app.lab.reset()
+                return self._json({"ok": True})
             if u.path == "/api/update/apply":
                 try:
                     r = updater.apply(lambda: bot.save_state(app.engine.state))
@@ -508,6 +568,7 @@ def main():
     threading.Thread(target=price_watcher, args=(server.app, stop_event), daemon=True).start()
     threading.Thread(target=license_watcher, args=(server.app, stop_event), daemon=True).start()
     threading.Thread(target=maintenance.watcher, args=(server.app, stop_event), daemon=True).start()
+    threading.Thread(target=lab_mod.watcher, args=(server.app, stop_event), daemon=True).start()
     threading.Thread(target=telegram_bot.listener, args=(server.app, stop_event), daemon=True).start()
     if not a.no_browser:
         threading.Timer(1.0, webbrowser.open, [url]).start()

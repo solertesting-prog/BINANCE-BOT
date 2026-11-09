@@ -152,6 +152,22 @@ El panel se abre en tu navegador en la dirección **http://127.0.0.1:8765**. Sol
 | **⬆ Actualizar** | Solo en el servidor y cuando hay una versión nueva: la instala y el bot sigue solo |
 | **🔒** | Solo en el servidor: verificación en dos pasos (un código del móvil además de la contraseña) |
 
+### 💬 Qué está pensando el bot
+
+Para cada moneda verás el tipo de mercado (📈 alcista, ↔ lateral, 📉 bajista) y una frase que explica qué hace el bot: por qué no compra, qué está esperando o cuándo vendería. Se actualiza cada vez que se cierra una vela. En Telegram, lo mismo con `/porque`.
+
+### 🧪 Laboratorio
+
+Mientras tu bot opera con su estrategia, el laboratorio prueba **en paralelo y con dinero ficticio** varias variantes (el doble de riesgo, medias más rápidas, sin filtro de fuerza, con filtro de BTC, adaptativa al mercado). La tabla las ordena de mejor a peor resultado; "Tu estrategia actual" también participa, para comparar en igualdad de condiciones.
+
+- **Ten paciencia:** unos pocos días no significan nada. Espera semanas y al menos 20 operaciones antes de fiarte de una variante.
+- **Usar esta:** pasa tu bot a esa variante. La clasificación empieza de cero.
+- Si cambias de monedas, velas o estrategia, el laboratorio también se reinicia.
+
+### 🔗 Compartir resultados
+
+El botón **🔗 Compartir** (junto a "Evolución del capital") crea un enlace público de solo lectura. Muestra la evolución en porcentaje, las operaciones cerradas y la comparación con comprar y mantener BTC; **nunca** importes, saldos ni claves, e indica si los resultados son simulados o reales. Puedes desactivarlo cuando quieras: el enlace deja de funcionar.
+
 ### Cosas importantes
 
 - **Puedes cerrar la pestaña del navegador**: el bot sigue funcionando en segundo plano. Para volver a verlo, doble clic en el icono del escritorio.

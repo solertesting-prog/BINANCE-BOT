@@ -1046,6 +1046,19 @@ def test_plataforma_registro_aislamiento_y_admin(tmp_path, monkeypatch):
         assert not json.loads(_req(base, "/api/status", headers=admin)[2])["running"]
         assert srv.bots.apps[2].engine.files.state != srv.bots.apps[1].engine.files.state
         assert (tmp_path / "datos" / "usuarios" / "2" / "state.json").exists()
+        # página pública y laboratorio: cada usuario los suyos
+        path = json.loads(_req(base, "/api/public/enable", "POST", {}, ana)[2])["path"]
+        assert _req(base, path)[0] == 200 and json.loads(_req(base, path + "/data")[2])["mode"] == "paper"
+        assert json.loads(_req(base, "/api/public", headers=admin)[2])["enabled"] is False
+        assert json.loads(_req(base, "/api/lab", headers=ana)[2])["variants"] == []
+        lab = srv.bots.lab(db.user(2))
+        lab.sync(srv.bots.apps[2].engine.cfg, srv.bots.apps[2].data_ex)
+        lab.step()
+        assert len(json.loads(_req(base, "/api/lab", headers=ana)[2])["variants"]) >= 5
+        assert (tmp_path / "datos" / "usuarios" / "2" / "lab" / "actual").exists()
+        assert _req(base, "/api/lab/apply", "POST", {"id": "riesgo2"}, ana)[0] == 200
+        assert srv.bots.apps[2].engine.cfg.risk_per_trade == 0.02 and srv.bots.apps[2].engine.is_running()
+        assert srv.bots.apps[1].engine.cfg.risk_per_trade == 0.01
         # un usuario normal no puede administrar ni usar modos reales
         assert _req(base, "/api/admin/users", headers=ana)[0] == 403
         assert _req(base, "/admin", headers=ana)[0] == 302
@@ -1096,5 +1109,132 @@ def test_plataforma_doble_factor_por_usuario(tmp_path, monkeypatch):
         nxt = auth.totp_code(secret, clock[0] + 30)
         monkeypatch.setattr(auth.time, "time", lambda: clock[0] + 30)
         assert _req(base, "/api/login", "POST", {"email": "b@ej.com", "password": "clave-segura-b", "code": nxt})[0] == 200
+    finally:
+        srv.shutdown()
+
+
+# ---------- estrategia adaptativa y explicaciones ----------
+RANGE = [100 + 3 * np.sin(i / 3) for i in range(120)] + [88, 86] + [100 + 3 * np.sin(i / 3) for i in range(30)]
+
+
+def test_estrategia_adaptativa_compra_caidas_en_mercado_lateral(isolated):
+    from strategy import add_signals, entry_kind, regime
+    cfg = replace(BASE, strategy_mode="adaptive", trend_filter=50, adx_min=40, stop_mode="atr",
+                  atr_stop_mult=6, atr_trail_mult=0, fast=20, slow=50, ma_type="ema")
+    df = add_signals(candles(RANGE), cfg)
+    assert set(df["regime"].unique()) <= {"", "alcista", "lateral", "bajista"}
+    assert (df["signal"] == 2).any() and entry_kind(2) == "range" and entry_kind(-1) is None
+    # en modo tendencia no hay entradas de rango
+    assert not (add_signals(candles(RANGE), replace(cfg, strategy_mode="trend"))["signal"] == 2).any()
+    bt = run_backtest(candles(RANGE), cfg)
+    assert bt["operaciones"] >= 1 and "vuelta a la media" in set(bt["trades"].motivo)
+    # el bot hace lo mismo que el backtest
+    ex = FakeExchange({"BTC/USDT": rows_of(RANGE)})
+    e = bot.Engine(cfg, ex)
+    e.connect()
+    run_engine(e, len(RANGE))
+    log = bot.read_trades()
+    assert len(log) == bt["operaciones"]
+    assert [t["motivo"] for t in log] == list(bt["trades"].motivo)
+
+
+def test_el_bot_explica_lo_que_piensa(isolated):
+    ex = FakeExchange({"BTC/USDT": rows_of(UP_DOWN)})
+    e = bot.Engine(BASE, ex)
+    e.connect()
+    run_engine(e, 3)
+    assert "suficientes velas" in e.explain["BTC/USDT"]
+    run_engine(e, 20)
+    assert "Mantengo la compra" in e.explain["BTC/USDT"] and "cruza por debajo" in e.explain["BTC/USDT"]
+    run_engine(e, len(UP_DOWN))
+    txt = e.snapshot()["explain"]["BTC/USDT"]
+    assert txt.startswith("No compro") and "por debajo de la de 6" in txt
+    # con filtros: dice cuál falta
+    e2 = bot.Engine(replace(BASE, trend_filter=30), FakeExchange({"BTC/USDT": rows_of(UP_DOWN)}))
+    e2.state = bot.new_state(BASE)
+    e2.connect()
+    run_engine(e2, len(UP_DOWN))
+    assert "media de 30 velas" in e2.explain["BTC/USDT"]
+    # tras un reinicio explica sin volver a operar
+    e3 = bot.Engine(BASE, e.ex)
+    e3.connect()
+    n = len(bot.read_trades())
+    e3.step()
+    assert e3.explain["BTC/USDT"] and len(bot.read_trades()) == n
+
+
+# ---------- laboratorio en la sombra ----------
+def test_laboratorio_compara_variantes_y_aplica_la_elegida(isolated, monkeypatch):
+    import config as C
+    import lab as L
+    import panel
+    monkeypatch.setattr(C, "SETTINGS_FILE", isolated / "settings.json")
+    monkeypatch.setattr(C, "ENV_FILE", isolated / ".env")
+    cfg = replace(BASE, risk_per_trade=0.01, stop_loss=0.05)
+    ids = [v[0] for v in L.variants(cfg)]
+    assert ids[0] == "actual" and {"riesgo2", "rapida", "filtro_btc", "adaptativa"} <= set(ids)
+    ex = FakeExchange({"BTC/USDT": rows_of(UP_DOWN)})
+    raw = ex
+    ex = exchange.SharedMarket(raw)
+    ex.TICKER_TTL = ex.OHLCV_TTL = 0                 # sin caché: en el test el tiempo avanza vela a vela
+    lab = L.Lab(isolated / "lab")
+    lab.sync(cfg, ex)
+    for raw.i in range(len(UP_DOWN)):
+        lab.step()
+    assert lab.error is None
+    r = lab.ranking()
+    rows = {v["id"]: v for v in r["variants"]}
+    assert r["ready"] and r["since"] and rows["actual"]["trades"] >= 1
+    assert [v["return"] for v in r["variants"]] == sorted((v["return"] for v in r["variants"]), reverse=True)
+    assert rows["riesgo2"]["return"] != rows["actual"]["return"]          # arriesgar el doble cambia el resultado
+    assert not bot.read_trades()                                          # no toca el historial del bot real
+    assert (isolated / "lab" / "actual" / "state.json").exists()
+    # sobrevive a un reinicio y se reinicia si cambia la configuración
+    lab2 = L.Lab(isolated / "lab")
+    lab2.sync(cfg, ex)
+    assert lab2.ranking()["since"] == r["since"]
+    assert {v["id"]: v for v in lab2.ranking()["variants"]}["actual"]["trades"] == rows["actual"]["trades"]
+    lab2.sync(replace(cfg, timeframe="1h"), ex)
+    assert all(v["trades"] == 0 for v in lab2.ranking()["variants"])
+    # aplicar una variante cambia la estrategia del bot
+    app = panel.PanelApp(bot.Engine(cfg, ex), ex)
+    app.lab = lab
+    with pytest.raises(ValueError):
+        app.apply_variant("actual")
+    seen = {}
+    app.apply_variant("riesgo2", engine_factory=lambda c: seen.setdefault("cfg", c) and bot.Engine(c, ex),
+                      data_ex_factory=lambda c: ex)
+    assert seen["cfg"].risk_per_trade == 0.02 and C.read_settings()["risk_per_trade"] == 0.02
+
+
+# ---------- página pública de resultados ----------
+def test_pagina_publica_solo_con_enlace_y_sin_importes(isolated, monkeypatch):
+    import config as C
+    import telegram_bot as tb
+    monkeypatch.setattr(C, "ENV_FILE", isolated / ".env")
+    ex = FakeExchange({"BTC/USDT": rows_of(UP_DOWN)})
+    e = bot.Engine(replace(BASE, paper_balance=4321.0), ex)
+    e.state = bot.new_state(e.cfg)
+    e.connect()
+    run_engine(e, len(UP_DOWN))
+    e.state["equity_history"] = [[1_700_000_000 + i * 3600, 4321.0 * (1 + i / 1000)] for i in range(30)]
+    assert "No compro" in tb.handle(type("A", (), {"engine": e})(), "/porque")
+    srv, base = _panel(e)
+    try:
+        assert _req(base, "/p/" + "x" * 24)[0] == 404                      # desactivada por defecto
+        assert json.loads(_req(base, "/api/public")[2]) == {"enabled": False, "path": ""}
+        path = json.loads(_req(base, "/api/public/enable", "POST", {})[2])["path"]
+        assert path.startswith("/p/") and len(path) > 20
+        code, _, html = _req(base, path)
+        assert code == 200 and b"Resultados" in html
+        code, _, raw = _req(base, path + "/data")
+        d = json.loads(raw)
+        assert code == 200 and d["mode"] == "paper" and d["trades_count"] == len(bot.read_trades()) >= 1
+        assert d["curve"][0][1] == 100 and abs(d["return"] - 0.029) < 1e-6
+        assert "4321" not in raw.decode() and "qty" not in raw.decode() and "cantidad" not in raw.decode()
+        assert _req(base, path[:-1] + ("a" if path[-1] != "a" else "b"))[0] == 404
+        assert _req(base, path + "/otra")[0] == 404
+        _req(base, "/api/public/disable", "POST", {})
+        assert _req(base, path)[0] == 404 and _req(base, path + "/data")[0] == 404
     finally:
         srv.shutdown()
