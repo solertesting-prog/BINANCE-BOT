@@ -19,6 +19,14 @@ APP_DIR="/opt/valorize-bot"
 PORT=8765
 export DEBIAN_FRONTEND=noninteractive
 
+echo "==> [0/7] Memoria de intercambio (servidores pequeños, p. ej. AWS t3.micro con 1 GB)"
+MEM_MB=$(awk '/MemTotal/ {print int($2/1024)}' /proc/meminfo)
+if [ "$MEM_MB" -lt 1800 ] && ! swapon --show | grep -q .; then
+  fallocate -l 1G /swapfile || dd if=/dev/zero of=/swapfile bs=1M count=1024
+  chmod 600 /swapfile && mkswap /swapfile && swapon /swapfile
+  grep -q '^/swapfile' /etc/fstab || echo '/swapfile none swap sw 0 0' >> /etc/fstab
+fi
+
 echo "==> [1/7] Paquetes del sistema"
 apt-get update -q
 apt-get install -yq python3-venv python3-pip git ufw curl gnupg debian-keyring debian-archive-keyring \
@@ -53,6 +61,9 @@ echo "==> [5/7] Configuración (.env)"
 if [ -z "${DOMAIN:-}" ]; then
   IP="$(curl -4 -fsS https://api.ipify.org || hostname -I | awk '{print $1}')"
   DOMAIN="$(echo "$IP" | tr . -).sslip.io"
+  echo "AUTO_DOMAIN=1" > /etc/valorize-bot.conf     # la dirección sigue a la IP si cambia
+else
+  echo "AUTO_DOMAIN=0" > /etc/valorize-bot.conf
 fi
 ENV_FILE="$APP_DIR/.env"
 [ -f "$ENV_FILE" ] || cp "$APP_DIR/.env.example" "$ENV_FILE"
@@ -93,6 +104,37 @@ $DOMAIN {
 }
 EOF
 
+# Si el proveedor cambia la IP pública al reiniciar (p. ej. AWS al parar y arrancar),
+# esto actualiza la dirección <ip>.sslip.io en cada arranque.
+cat > /usr/local/bin/valorize-actualizar-ip <<'SCRIPT'
+#!/usr/bin/env bash
+set -u
+. /etc/valorize-bot.conf
+[ "${AUTO_DOMAIN:-0}" = 1 ] || exit 0
+IP="$(curl -4 -fsS --retry 5 --retry-delay 3 https://api.ipify.org)" || exit 0
+D="$(echo "$IP" | tr . -).sslip.io"
+grep -q "^$D {" /etc/caddy/Caddyfile && exit 0
+sed -i "s|^PANEL_HOSTS=.*|PANEL_HOSTS=$D|" /opt/valorize-bot/.env
+printf '%s {\n\tencode gzip\n\treverse_proxy 127.0.0.1:8765\n}\n' "$D" > /etc/caddy/Caddyfile
+echo "https://$D" > /root/valorize-url.txt
+systemctl reload-or-restart caddy || true
+SCRIPT
+chmod 755 /usr/local/bin/valorize-actualizar-ip
+cat > /etc/systemd/system/valorize-ip.service <<UNIT
+[Unit]
+Description=Valorize Bot: actualizar la dirección si cambia la IP
+After=network-online.target
+Wants=network-online.target
+Before=caddy.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/valorize-actualizar-ip
+
+[Install]
+WantedBy=multi-user.target
+UNIT
+
 echo "==> [7/7] Cortafuegos y arranque"
 ufw allow OpenSSH
 ufw allow 80/tcp
@@ -101,7 +143,7 @@ ufw --force enable
 systemctl daemon-reload
 systemctl enable --now valorize-bot
 systemctl restart valorize-bot
-systemctl enable caddy
+systemctl enable caddy valorize-ip
 systemctl restart caddy
 
 echo "https://$DOMAIN" > /root/valorize-url.txt

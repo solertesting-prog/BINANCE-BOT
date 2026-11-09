@@ -32,7 +32,8 @@ Valorize Bot es un bot de trading automático para el mercado spot (solo compras
 - Guía del vendedor en [VENTA_LICENCIAS.md](VENTA_LICENCIAS.md) y manual del cliente en [MANUAL_CLIENTE.md](MANUAL_CLIENTE.md).
 
 **Servidor 24/7 con acceso web** ([SERVIDOR.md](SERVIDOR.md))
-- `preparar-servidor.bat` genera un texto *cloud-init*: al crear un servidor (p. ej. Hetzner, ~6 €/mes) se instala solo.
+- `preparar-servidor.bat` genera un texto *cloud-init*: al crear un servidor (AWS gratis 6 meses, Hetzner ~6 €/mes...) se instala solo.
+- Memoria de intercambio automática en servidores de 1 GB y dirección que se actualiza sola si cambia la IP pública.
 - HTTPS automático con Caddy (dominio gratuito `<ip>.sslip.io` o uno propio), servicio que se reinicia solo, cortafuegos y parches automáticos.
 - Login con contraseña (hash scrypt), cookie segura, bloqueo tras 5 intentos fallidos y lista de dominios permitidos.
 
