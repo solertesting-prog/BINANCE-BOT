@@ -42,8 +42,9 @@ class Config:
     # --- Filtros de entrada ---
     trend_filter: int = 200          # solo compra si el precio está sobre esta media larga
     adx_min: float = 20              # solo compra si ADX >= este valor (evita mercados laterales)
-    market_filter: str = "BTC"       # filtro de mercado: no compra otras monedas si BTC está bajo
-    market_filter_ma: int = 200      #   su media de 200 velas (en las caídas, todas caen juntas). "" = no
+    market_filter: str = ""          # filtro de mercado (opcional): "BTC" = no compra otras monedas si BTC
+    market_filter_ma: int = 200      #   está bajo su media de 200 velas. En el backtest de 3 años
+                                     #   redujo caídas en unas monedas y ganancias en otras: desactivado
 
     # --- Stops ---
     stop_mode: str = "atr"           # "atr" (se adapta a la volatilidad) o "pct" (porcentaje fijo)

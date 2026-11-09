@@ -8,7 +8,7 @@ Valorize Bot es un bot de trading automático para el mercado spot (solo compras
 
 **Estrategia**
 - Cruce de medias móviles (EMA 20/50) con filtro de tendencia (EMA 200) y filtro de fuerza (ADX ≥ 20) para evitar mercados laterales.
-- **Filtro de mercado:** no compra otras monedas mientras BTC esté bajo su media de 200 velas (en las caídas, casi todas caen juntas).
+- **Filtro de mercado** opcional: no comprar otras monedas mientras BTC esté bajo su media de 200 velas (desactivado por defecto: en el backtest de 3 años no mejoró el resultado total).
 - **Stops según la volatilidad (ATR):** stop inicial a 2,5 × ATR y trailing a 3 × ATR, que sube con el precio.
 - **Tamaño según el riesgo:** cada operación arriesga como máximo un 1 % del capital.
 - **Varias monedas** a la vez (botón ⭐ Recomendadas con 6 de las más líquidas), con límite de posiciones abiertas.

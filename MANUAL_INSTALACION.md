@@ -384,7 +384,7 @@ Suele pasar con cantidades muy pequeñas (por debajo del mínimo del exchange) o
 El bot perdió más del límite (20 %), vendió todo y se paró para protegerte. **Piensa qué ha pasado antes de seguir.** Para continuar, pulsa **Reactivar** y luego **Arrancar**.
 
 ### El bot lleva días sin operar
-Es normal con velas de 4 horas y los filtros activados. Mira en el **Registro** del panel que siga apareciendo "vela … cerrada" cada 4 horas. Si ves "Filtro de mercado: BTC/USDT está bajo su media…", es que BTC está en tendencia bajista y el bot no compra otras monedas a propósito (se puede desactivar en ⚙ Configuración → Monedas, aunque no se recomienda).
+Es normal con velas de 4 horas y los filtros activados. Mira en el **Registro** del panel que siga apareciendo "vela … cerrada" cada 4 horas. Si ves "Filtro de mercado: BTC/USDT está bajo su media…", es que BTC está en tendencia bajista y el bot no compra otras monedas a propósito (es opcional y se activa o desactiva en ⚙ Configuración → Monedas).
 
 > 💡 Con **5–8 monedas** opera bastante más a menudo que solo con BTC: en ⚙ Configuración → Monedas, pulsa **⭐ Recomendadas**.
 

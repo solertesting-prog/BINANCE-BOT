@@ -707,7 +707,7 @@ async function openWiz(first){
   try{ W.setup = await get('/api/setup'); }catch(e){ $('wBody').innerHTML='<div class="note bad">No se pudo cargar: '+esc(e.message)+'</div>'; return; }
   const c = W.setup.current;
   W.d = {exchange:c.exchange, mode:c.mode, testnet:c.testnet, credentials:{}, symbols:[...c.symbols], timeframe:c.timeframe,
-         risk_per_trade:c.risk_per_trade, paper_balance:c.paper_balance, market_filter:c.market_filter!==false};
+         risk_per_trade:c.risk_per_trade, paper_balance:c.paper_balance, market_filter:!!c.market_filter};
   W.step=0; W.markets=null; W.test=null; W.search='';
   $('wTitle').textContent = first ? 'Bienvenido 👋' : 'Configuración';
   $('wSub').textContent = first ? 'Conecta tu exchange y elige qué monedas operar. Tardas 2 minutos.' : 'Exchange, modo, claves y monedas';
@@ -826,7 +826,7 @@ function renderCoins(keepFocus){
     <div class="field"><label>Riesgo máximo por operación</label><div class="seg">${[0.005,0.01,0.02].map(r=>`<button class="${Math.abs(r-d.risk_per_trade)<1e-9?'on':''}" onclick="W.d.risk_per_trade=${r};renderCoins()">${nf(r*100,1)} %${r===0.01?' · recomendado':''}</button>`).join('')}</div>
       <p class="muted" style="font-size:12px;margin:6px 0 0">Si salta el stop, como mucho pierdes este % de tu capital en esa operación.</p></div>
     <label class="chk"><input type="checkbox" ${d.market_filter?'checked':''} onchange="W.d.market_filter=this.checked">
-      <span><b>Filtro de mercado</b> (recomendado): no comprar otras monedas mientras BTC esté en tendencia bajista (bajo su media de 200 velas). En las caídas, casi todas caen juntas.</span></label>`;
+      <span><b>Filtro de mercado</b> (opcional): no comprar otras monedas mientras BTC esté en tendencia bajista (bajo su media de 200 velas). En el backtest de 3 años redujo las caídas en unas monedas pero también las ganancias en otras.</span></label>`;
   const pos = $('msearch') ? $('msearch').selectionStart : null;
   $('wBody').innerHTML = html;
   if(keepFocus && pos!=null){ const m=$('msearch'); m.focus(); m.setSelectionRange(pos,pos); }

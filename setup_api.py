@@ -190,7 +190,7 @@ def validate_and_save(engine, body: dict) -> bool:
     taker = by_symbol[symbols[0]].get("taker")
     settings.update({"exchange": ex_id, "symbols": symbols, "timeframe": timeframe, "risk_per_trade": risk,
                      "paper_balance": paper_balance, "fee": float(taker) if taker else 0.001,
-                     "market_filter": "BTC" if body.get("market_filter", True) else ""})
+                     "market_filter": "BTC" if body.get("market_filter") else ""})
     tmp = C.SETTINGS_FILE.with_suffix(".tmp")
     tmp.write_text(json.dumps(settings, indent=2, ensure_ascii=False), encoding="utf-8")
     tmp.replace(C.SETTINGS_FILE)
