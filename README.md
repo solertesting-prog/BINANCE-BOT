@@ -17,7 +17,7 @@ Valorize Bot es un bot de trading automático para el mercado spot (solo compras
 **Laboratorio, explicaciones y página pública**
 - **🧪 Laboratorio en la sombra:** variantes de tu estrategia (más riesgo, medias 10/30, sin filtro de fuerza, filtro de BTC, adaptativa) compiten en paralelo con dinero ficticio y los mismos precios en vivo. El panel muestra la clasificación y un botón para pasar a usar la que elijas.
 - **💬 Qué está pensando el bot:** para cada moneda, el tipo de mercado (alcista, lateral, bajista) y una frase en lenguaje llano: por qué no compra, qué espera o cuándo vendería. También con `/porque` en Telegram.
-- **Estrategia adaptativa** (opcional, `strategy_mode = "adaptive"`): sigue tendencias cuando las hay, compra caídas exageradas en mercado lateral (RSI + banda de Bollinger) y se queda fuera en mercado bajista. Pruébala primero en el laboratorio o con `python backtest.py --mode adaptive`.
+- **Estrategia adaptativa** (opcional, `strategy_mode = "adaptive"`): sigue tendencias cuando las hay, compra caídas exageradas en mercado lateral (RSI + banda de Bollinger) y se queda fuera en mercado bajista. **Desactivada por defecto:** en el backtest de 3 años (6 monedas, velas de 4 h) rindió peor que la de solo tendencia (+8 % frente a +30 % sumando las seis, y con caídas mayores). Queda como variante del laboratorio y en `python backtest.py --mode adaptive`.
 - **🔗 Página pública de resultados:** enlace de solo lectura, opcional, con la evolución en porcentaje, las operaciones y la comparación con comprar y mantener BTC. Nunca muestra importes e indica si los resultados son simulados o reales.
 
 **Multi-exchange y asistente de configuración**

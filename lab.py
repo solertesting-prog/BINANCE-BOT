@@ -48,7 +48,7 @@ def variants(cfg) -> list:
          else "Compra aunque BTC esté en tendencia bajista", {"market_filter": "" if cfg.market_filter else "BTC"}),
         ("adaptativa", "Solo tendencia" if cfg.strategy_mode == "adaptive" else "Adaptativa al mercado",
          "Solo sigue tendencias" if cfg.strategy_mode == "adaptive"
-         else "En mercado lateral compra caídas exageradas; en bajista se queda fuera",
+         else "En mercado lateral compra caídas exageradas; en bajista se queda fuera (experimental)",
          {"strategy_mode": "trend" if cfg.strategy_mode == "adaptive" else "adaptive"}),
     ]
     return [v for v in out if v[0] == "actual" or any(getattr(cfg, k) != val for k, val in v[3].items())]
