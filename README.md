@@ -35,7 +35,7 @@ Valorize Bot es un bot de trading automático para el mercado spot (solo compras
 - `preparar-servidor.bat` genera un texto *cloud-init*: al crear un servidor (AWS gratis 6 meses, Hetzner ~6 €/mes...) se instala solo.
 - Memoria de intercambio automática en servidores de 1 GB y dirección que se actualiza sola si cambia la IP pública.
 - HTTPS automático con Caddy (dominio gratuito `<ip>.sslip.io` o uno propio), servicio que se reinicia solo, cortafuegos y parches automáticos.
-- Login con contraseña (hash scrypt), cookie segura, bloqueo tras 5 intentos fallidos y lista de dominios permitidos.
+- Login con contraseña (hash scrypt), cookie segura, bloqueo tras 5 intentos fallidos y lista de dominios permitidos. La sesión dura 7 días y sobrevive a reinicios y actualizaciones.
 
 **Panel de control** (`http://127.0.0.1:8765`)
 - Gráfico de velas con las medias, las compras y ventas del bot y las líneas de entrada y stop.
@@ -77,7 +77,7 @@ Exchange, modo, claves y monedas se configuran desde el panel (**⚙ Configuraci
 | `compilar.bat`, `cliente/` | Compilación a `.exe` e instalador para clientes |
 | `backtest.py`, `report.py`, `optimize.py` | Backtest, informe HTML y optimización walk-forward |
 | `exchange.py` | Conexión con el exchange (ccxt), capacidades de cada uno y descarga de velas |
-| `tests/` | 38 tests sin conexión: estrategia, backtest, motor, asistente, licencias y acceso con contraseña (con exchanges y servidor de licencias simulados) y panel |
+| `tests/` | 39 tests sin conexión: estrategia, backtest, motor, asistente, licencias y acceso con contraseña (con exchanges y servidor de licencias simulados) y panel |
 | `auth.py`, `web/login.html` | Acceso con contraseña al panel (para usarlo por internet) |
 | `deploy/instalar-servidor.sh`, `deploy/generar_cloud_init.py`, `preparar-servidor.bat` | Instalación automática en un servidor (ver SERVIDOR.md) |
 | `deploy/valorize-bot.service` | Servicio systemd básico (alternativa manual) |

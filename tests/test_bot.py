@@ -815,3 +815,20 @@ def test_telegram_conectar_desde_el_panel(tmp_path, monkeypatch):
     assert len(fake.sent) == 2
     tg.remove()
     assert not tg.status()["configured"]
+
+
+def test_sesion_sobrevive_a_un_reinicio(with_password):
+    import auth
+    token = auth.login("contraseña-segura-123", "1.2.3.4")
+    assert auth.check(token)
+    saved = (with_password / "sessions.json").read_text()
+    assert token not in saved                            # solo se guarda la huella
+    auth._sessions.clear(); auth._loaded_for = None      # simula reiniciar el servidor
+    assert auth.check(token)
+    auth.logout(token)
+    auth._sessions.clear(); auth._loaded_for = None
+    assert not auth.check(token)
+    token = auth.login("contraseña-segura-123", "1.2.3.4")
+    auth.set_password("otra-contraseña-456")             # cambiar la contraseña las cierra todas
+    auth._sessions.clear(); auth._loaded_for = None
+    assert not auth.check(token)
